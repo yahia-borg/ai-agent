@@ -1,0 +1,14 @@
+Validation Report
+==================================================
+
+Valid entries: 470
+Invalid entries: 2
+
+Invalid Entries:
+--------------------------------------------------
+Row: {'name': 'Governing Codes', 'category': 'General', 'unit': 'unit', 'price_per_unit': '1010100.5596004102', 'currency': 'EGP', 'source_document': 'construction_finishing_knowledge_base_egypt.md'}
+Errors: Price out of range: 1010100.5596004102
+
+Row: {'name': 'Structural Design', 'category': 'General', 'unit': 'unit', 'price_per_unit': '1010202.0', 'currency': 'EGP', 'source_document': 'construction_finishing_knowledge_base_egypt.md'}
+Errors: Price out of range: 1010202.0
+

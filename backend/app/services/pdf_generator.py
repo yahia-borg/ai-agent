@@ -11,7 +11,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 from app.models.quotation import Quotation, QuotationData
 from app.utils.language_detector import detect_language
-from app.utils.quotation_descriptions import get_category_description
+# from app.utils.quotation_descriptions import get_category_description
 import os
 import logging
 
@@ -205,18 +205,7 @@ class PDFGenerator:
                 item_unit = item.get("unit", "unit")
                 
                 # Generate detailed description
-                item_description = item.get("description")
-                if not item_description:
-                    # Try to infer category from item name
-                    item_category = item.get("category", "General")
-                    item_description = get_category_description(
-                        category=item_category,
-                        item_name=item_name,
-                        quantity=item_quantity,
-                        unit=item_unit,
-                        is_arabic=True,
-                        item_details=item.get("details")
-                    )
+                item_description = item.get("description", "base")
                 
                 item_data = {
                     "name": item_name,

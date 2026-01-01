@@ -1,0 +1,83 @@
+flowchart TB
+    subgraph Frontend["React Frontend"]
+        UI[User Interface]
+        Chat[Chat Component]
+        Quote[Quotation Display]
+    end
+
+    subgraph API["FastAPI Backend"]
+        REST[REST API Endpoints]
+        WS[WebSocket Stream]
+    end
+
+    subgraph LangGraph["LangGraph Multi-Agent System"]
+        subgraph Supervisor["🎯 Supervisor Agent"]
+            Router[Workflow Router]
+            State[State Manager]
+        end
+
+        subgraph Agents["Worker Agents"]
+            RA["👤 Requirements Agent<br/>Gathers project details<br/>Validates inputs"]
+            DRA["🔍 Data Retrieval Agent<br/>Queries Qdrant & PostgreSQL<br/>Gets pricing & materials"]
+            CA["🧮 Calculation Agent<br/>Computes costs<br/>Generates quotation"]
+        end
+    end
+
+    subgraph Tools["Agent Tools"]
+        T1[validate_project_area]
+        T2[calculate_room_breakdown]
+        T3[search_materials]
+        T4[get_labor_rates]
+        T5[get_material_pricing]
+        T6[calculate_quantities]
+        T7[generate_quotation]
+    end
+
+    subgraph Databases["Data Layer"]
+        Qdrant[(Qdrant<br/>Vector DB<br/>Materials & Specs)]
+        Postgres[(PostgreSQL<br/>Relational DB<br/>Pricing & Labor)]
+    end
+
+    subgraph Memory["Memory Layer"]
+        STM[("Short-Term Memory<br/>InMemorySaver<br/>Conversation State")]
+        LTM[("Long-Term Memory<br/>InMemoryStore<br/>User Preferences")]
+    end
+
+    UI --> Chat
+    Chat --> REST
+    REST --> Router
+    
+    Router -->|"Command(goto='requirements_agent')"| RA
+    Router -->|"Command(goto='data_retrieval_agent')"| DRA
+    Router -->|"Command(goto='calculation_agent')"| CA
+    
+    RA -->|"Command(goto='supervisor')"| Router
+    DRA -->|"Command(goto='supervisor')"| Router
+    CA -->|"Command(goto='supervisor')"| Router
+
+    RA --> T1
+    RA --> T2
+    DRA --> T3
+    DRA --> T4
+    DRA --> T5
+    CA --> T6
+    CA --> T7
+
+    T3 --> Qdrant
+    T4 --> Postgres
+    T5 --> Postgres
+
+    State --> STM
+    State --> LTM
+
+    Router -->|Final Quotation| WS
+    WS --> Quote
+
+    style Supervisor fill:#e1f5fe
+    style RA fill:#fff3e0
+    style DRA fill:#e8f5e9
+    style CA fill:#fce4ec
+    style Qdrant fill:#f3e5f5
+    style Postgres fill:#e3f2fd
+    style STM fill:#fffde7
+    style LTM fill:#fff8e1

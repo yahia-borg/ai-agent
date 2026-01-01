@@ -20,6 +20,7 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
+      - ./ai_models:/app/ai_models  # Mount embedding model (not copied into image)
     ports:
       - "8001:8000"
     environment:

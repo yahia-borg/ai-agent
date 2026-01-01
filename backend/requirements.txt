@@ -15,6 +15,7 @@ langchain-openai
 langchain-anthropic
 langchain-ollama
 langgraph
+langsmith>=0.1.0
 openai
 anthropic
 celery
@@ -30,3 +31,5 @@ sentence-transformers>=2.2.0
 torch>=2.0.0
 python-bidi>=0.4.2
 arabic-reshaper>=3.0.0
+pyyaml>=6.0
+langgraph-checkpoint-postgres

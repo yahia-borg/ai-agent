@@ -58,6 +58,21 @@ class Settings(BaseSettings):
     
     # Embedding Model Configuration (Hugging Face)
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    EMBEDDING_MODEL_PATH: str = ""
+    EMBEDDING_DEVICE: str = "cpu"  # Device for embedding model: 'cpu' or 'cuda'
+    
+    # Loop Protection Constants
+    MAX_TOTAL_TURNS: int = 20
+    MAX_REQUIREMENTS_ATTEMPTS: int = 8
+    MAX_DATA_RETRIEVAL_ATTEMPTS: int = 3
+    MAX_CALCULATION_ATTEMPTS: int = 3
+    SESSION_TIMEOUT_MINUTES: int = 30
+    
+    # LangSmith Configuration
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_PROJECT: str = "construction-agent"
+    LANGSMITH_TRACING: bool = True
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
     
     @property
     def cors_origins_list(self) -> List[str]:

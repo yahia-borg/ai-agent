@@ -17,7 +17,8 @@ from app.schemas.quotation import (
     QuotationDetailResponse,
     QuotationDataResponse
 )
-from app.agents.orchestrator import AgentOrchestrator
+# LEGACY: AgentOrchestrator removed - quotations endpoint needs migration to LangGraph
+# from app.agents.orchestrator import AgentOrchestrator
 from app.services.pdf_generator import PDFGenerator
 from app.services.excel_generator import ExcelGenerator
 from app.core.exceptions import QuotationNotFoundError, QuotationNotCompletedError
@@ -28,7 +29,7 @@ from app.utils.validators import (
 )
 
 router = APIRouter()
-orchestrator = AgentOrchestrator()
+# orchestrator = AgentOrchestrator()  # DISABLED - legacy
 pdf_generator = PDFGenerator()
 excel_generator = ExcelGenerator()
 
@@ -85,12 +86,14 @@ async def create_quotation(
 
 
 async def process_quotation_background(quotation_id: str):
-    """Background task to process quotation"""
+    """Background task to process quotation - LEGACY DISABLED"""
+    # LEGACY: This endpoint needs migration to use CostEstimationAgent with LangGraph
     # Create new session for background task
     from app.core.database import SessionLocal
     background_db = SessionLocal()
     try:
-        await orchestrator.process_quotation(quotation_id, background_db)
+        # await orchestrator.process_quotation(quotation_id, background_db)  # DISABLED
+        pass  # TODO: Migrate to LangGraph-based processing
     finally:
         background_db.close()
 

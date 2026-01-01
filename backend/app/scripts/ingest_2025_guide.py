@@ -5,7 +5,7 @@ from app.models.knowledge import KnowledgeItem
 
 def ingest_guide():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "../../../data/egypt-construction-costs-2025.md")
+    file_path = os.path.join(base_dir, "../../../data/clean/egypt-construction-costs-2025.md")
     
     if not os.path.exists(file_path):
         print(f"File not found: {file_path}")

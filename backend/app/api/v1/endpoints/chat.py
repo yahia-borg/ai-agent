@@ -10,7 +10,7 @@ import uuid
 import logging
 
 from app.core.database import get_db
-from app.agents.conversational_agent import ConversationalAgent
+from app.agents.cost_estimation_agent import CostEstimationAgent
 from app.agents.memory_manager import MemoryManager
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,9 @@ class ChatResponse(BaseModel):
     response: str
     quotation_id: Optional[str] = None
     history: List[Dict[str, str]]
+    workflow_status: Optional[str] = None
+    requirements_complete: Optional[bool] = None
+    quotation: Optional[Dict[str, Any]] = None
 
 
 @router.post("", response_model=ChatResponse)
@@ -110,7 +113,7 @@ async def chat_endpoint(
         
         # Initialize agent and memory manager
         memory_manager = MemoryManager(db)
-        agent = ConversationalAgent(memory_manager)
+        agent = CostEstimationAgent(memory_manager)
         
         # Get or create session_id (separate from quotation_id)
         if not session_id:
@@ -129,7 +132,10 @@ async def chat_endpoint(
         return ChatResponse(
             response=result.get("response", ""),
             quotation_id=result.get("quotation_id", quotation_id),
-            history=result.get("history", [])
+            history=result.get("history", []),
+            workflow_status=result.get("workflow_status"),
+            requirements_complete=result.get("requirements_complete"),
+            quotation=result.get("quotation")
         )
         
     except Exception as e:
@@ -196,7 +202,7 @@ async def chat_stream_endpoint(
     async def event_generator():
         try:
             memory_manager = MemoryManager(db)
-            agent = ConversationalAgent(memory_manager)
+            agent = CostEstimationAgent(memory_manager)
             
             # Get or create session_id (separate from quotation_id)
             session_id = request.session_id or f"session-{uuid.uuid4().hex[:12]}"

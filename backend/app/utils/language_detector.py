@@ -37,7 +37,7 @@ def get_multilingual_prompt(language: str) -> dict:
         "ar": {
             "system": """أنت وكيل استخراج بيانات لمشاريع البناء في مصر.
 استخرج المعلومات الرئيسية من أوصاف المشاريع وأعد بيانات JSON منظمة.
-ركز على: نوع المشروع، المساحة (بالمتر المربع أو القدم المربع)، تفاصيل الموقع (المحافظة/المدينة)، الجدول الزمني، والمتطلبات الرئيسية.
+ركز على: نوع المشروع، المساحة بالمتر المربع، تفاصيل الموقع (المحافظة/المدينة)، الجدول الزمني، والمتطلبات الرئيسية.
 يمكنك فهم النصوص بالعربية والإنجليزية.
 الأسعار بالجنيه المصري (EGP).""",
             "extraction": """استخرج المعلومات المنظمة من وصف مشروع البناء هذا (مشروع في مصر):
@@ -67,7 +67,7 @@ def get_multilingual_prompt(language: str) -> dict:
     "detected_language": "ar|en|mixed"
 }}
 
-ملاحظة: استخرج المساحة بالمتر المربع (sqm) والقدم المربع (sqft) إن وُجدت. إذا وُجدت واحدة فقط، احسب الأخرى (1 متر مربع = 10.764 قدم مربع).
+ملاحظة: استخرج المساحة بالمتر المربع (sqm).
 الأسعار بالجنيه المصري (EGP).
 كن دقيقاً ومحافظاً في تقدير درجات الثقة. أضف أسئلة متابعة فقط إذا كانت الثقة < 0.7."""
         },
@@ -147,5 +147,160 @@ Be accurate and conservative with confidence scores. Only include follow-up ques
         }
     }
     
+    return prompts.get(language, prompts["en"])
+
+
+def get_requirements_extraction_prompt(language: str) -> dict:
+    """
+    Get bilingual prompts for LLM-based requirements extraction.
+
+    Used by requirements subgraph for intelligent extraction of project details
+    from user messages with support for Arabic/English.
+
+    Args:
+        language: Language code ('ar', 'en', or 'mixed')
+
+    Returns:
+        Dict with 'system' and 'extraction' prompt templates
+    """
+    prompts = {
+        "ar": {
+            "system": """أنت مساعد لاستخراج متطلبات مشاريع البناء في مصر.
+استخرج المعلومات من رسائل المستخدم وأعد JSON منظم.
+ركز على: نوع المشروع، المساحة، عدد الغرف، حالة التشطيب الحالية، الستايل المطلوب، المستوى، والموقع.
+يمكنك فهم العربية والإنجليزية.
+الأسعار بالجنيه المصري (EGP).""",
+
+            "extraction": """استخرج متطلبات المشروع من الرسالة التالية:
+
+"{user_message}"
+
+المتطلبات الحالية:
+{current_requirements}
+
+أعد JSON بالهيكل التالي (املأ فقط الحقول الموجودة في الرسالة):
+{{
+    "project_type": "residential|commercial|factory|null",
+    "total_area_sqm": <رقم أو null>,
+    "current_finishing_status": "bare_concrete|plastered|semi_finished|painted|null",
+    "finishing_level": "basic|standard|premium|luxury|null",
+    "bedrooms_count": <عدد أو null>,
+    "bathrooms_count": <عدد أو null>,
+    "living_rooms_count": <عدد أو null>,
+    "kitchens_count": <عدد أو null>,
+    "bedroom_size_sqm": <رقم أو null>,
+    "bathroom_size_sqm": <رقم أو null>,
+    "living_room_size_sqm": <رقم أو null>,
+    "kitchen_size_sqm": <رقم أو null>,
+    "desired_finishing_style": "modern|classic|minimal|luxury|null",
+    "shops_count": <عدد أو null>,
+    "offices_count": <عدد أو null>,
+    "restrooms_count": <عدد أو null>,
+    "commercial_type": "retail|office_building|mixed_use|null",
+    "production_area_sqm": <رقم أو null>,
+    "warehouse_area_sqm": <رقم أو null>,
+    "office_area_sqm": <رقم أو null>,
+    "factory_type": "light_manufacturing|heavy_industrial|warehouse|null",
+    "confidence_score": <0.0 إلى 1.0>,
+    "missing_information": ["ما هو مفقود"]
+}}
+
+ملاحظات مهمة:
+- "residential" يشمل: شقة، فيلا، منزل، بيت، دوبلكس، تاون هاوس، بنتهاوس
+- "commercial" يشمل: مكتب، محل، معرض، مول، متجر
+- "factory" يشمل: مصنع، ورشة، مخزن
+- "bare_concrete" = عظم، خرسانة | "plastered" = محارة | "semi_finished" = نصف تشطيب | "painted" = مدهون
+- "basic" = بسيط، اقتصادي | "standard" = عادي، قياسي | "premium" = ممتاز | "luxury" = فاخر، لوكس
+- استخرج عدد الغرف (bedrooms_count) ومساحاتها (bedroom_size_sqm) بشكل منفصل
+- كن محافظاً في confidence_score"""
+        },
+
+        "en": {
+            "system": """You are an assistant for extracting construction project requirements in Egypt.
+Extract information from user messages and return structured JSON.
+Focus on: project type, area, room count, current finishing status, desired style, level, and location.
+You can understand both Arabic and English.
+Prices are in Egyptian Pounds (EGP).""",
+
+            "extraction": """Extract project requirements from this message:
+
+"{user_message}"
+
+Current requirements:
+{current_requirements}
+
+Return JSON with this structure (fill only fields mentioned in message):
+{{
+    "project_type": "residential|commercial|factory|null",
+    "total_area_sqm": <number or null>,
+    "current_finishing_status": "bare_concrete|plastered|semi_finished|painted|null",
+    "finishing_level": "basic|standard|premium|luxury|null",
+    "bedrooms_count": <number or null>,
+    "bathrooms_count": <number or null>,
+    "living_rooms_count": <number or null>,
+    "kitchens_count": <number or null>,
+    "bedroom_size_sqm": <number or null>,
+    "bathroom_size_sqm": <number or null>,
+    "living_room_size_sqm": <number or null>,
+    "kitchen_size_sqm": <number or null>,
+    "desired_finishing_style": "modern|classic|minimal|luxury|null",
+    "shops_count": <number or null>,
+    "offices_count": <number or null>,
+    "restrooms_count": <number or null>,
+    "commercial_type": "retail|office_building|mixed_use|null",
+    "production_area_sqm": <number or null>,
+    "warehouse_area_sqm": <number or null>,
+    "office_area_sqm": <number or null>,
+    "factory_type": "light_manufacturing|heavy_industrial|warehouse|null",
+    "confidence_score": <0.0 to 1.0>,
+    "missing_information": ["what's missing"]
+}}
+
+Important notes:
+- "residential" includes: apartment, villa, house, home, duplex, townhouse, penthouse
+- "commercial" includes: office, shop, store, showroom, mall
+- "factory" includes: factory, warehouse, plant, workshop
+- Extract room counts (bedrooms_count) and sizes (bedroom_size_sqm) separately
+- Be conservative with confidence_score"""
+        },
+
+        "mixed": {
+            "system": """You are an assistant for extracting construction project requirements in Egypt.
+You understand both Arabic and English and can extract information from mixed-language messages.
+Focus on: project type, area, room count, current finishing status, desired style, level, and location.
+Prices are in Egyptian Pounds (EGP).""",
+
+            "extraction": """Extract project requirements from this message (may contain Arabic and/or English):
+
+"{user_message}"
+
+Current requirements:
+{current_requirements}
+
+Return JSON with this structure (fill only fields mentioned in message):
+{{
+    "project_type": "residential|commercial|factory|null",
+    "total_area_sqm": <number or null>,
+    "location": "<city name or null>",
+    "rooms_breakdown": [
+        {{"room_type": "bedroom|bathroom|living_room|kitchen", "area_sqm": <number>, "count": <count>}}
+    ] or null,
+    "current_finishing_status": "bare_concrete|plastered|semi_finished|painted|null",
+    "desired_finishing_style": "<modern|classic|minimal or null>",
+    "finishing_level": "basic|standard|premium|luxury|null",
+    "confidence_score": <0.0 to 1.0>,
+    "missing_information": ["what's missing"]
+}}
+
+Important notes:
+- "residential" includes: apartment, villa, house, home, duplex, townhouse, شقة، فيلا، منزل، بيت، دوبلكس
+- "commercial" includes: office, shop, store, showroom, مكتب، محل، معرض
+- "factory" includes: factory, warehouse, plant, مصنع، ورشة، مخزن
+- Calculate total_area_sqm from room areas if possible
+- If room count mentioned, add to rooms_breakdown
+- Be conservative with confidence_score"""
+        }
+    }
+
     return prompts.get(language, prompts["en"])
 

@@ -17,14 +17,14 @@ class MemoryManager:
         self.db = db
         self.memory_store = MemoryStore(db)
     
-    def get_user_context(self, user_id: Optional[str] = None, quotation_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_user_context(self, user_id: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Get user context including preferences and past quotations
-        
+
         Args:
             user_id: Optional user ID
-            quotation_id: Optional quotation ID for session context
-            
+            session_id: Optional session ID for session context
+
         Returns:
             Dictionary with user context
         """
@@ -33,16 +33,16 @@ class MemoryManager:
             "past_quotations": [],
             "session_data": {}
         }
-        
+
         if user_id:
             context["preferences"] = self.memory_store.get_user_preferences(user_id)
             context["past_quotations"] = self.memory_store.get_past_quotations(user_id)
-        
-        if quotation_id:
-            session_data = self.memory_store.get_agent_session(quotation_id)
+
+        if session_id:
+            session_data = self.memory_store.get_agent_session(session_id)
             if session_data:
                 context["session_data"] = session_data
-        
+
         return context
     
     def save_user_preference(self, user_id: str, key: str, value: Any) -> None:
@@ -51,46 +51,46 @@ class MemoryManager:
         preferences[key] = value
         self.memory_store.set_user_preferences(user_id, preferences)
     
-    def get_conversation_history(self, quotation_id: str) -> List[Dict[str, str]]:
-        """Get conversation history for a quotation session"""
-        session_data = self.memory_store.get_agent_session(quotation_id)
+    def get_conversation_history(self, session_id: str) -> List[Dict[str, str]]:
+        """Get conversation history for a session"""
+        session_data = self.memory_store.get_agent_session(session_id)
         if session_data:
             return session_data.get("conversation_history", [])
         return []
-    
-    def save_conversation_history(self, quotation_id: str, history: List[Dict[str, str]]) -> None:
+
+    def save_conversation_history(self, session_id: str, history: List[Dict[str, str]]) -> None:
         """Save conversation history"""
-        self.memory_store.update_agent_session(quotation_id, {
+        self.memory_store.update_agent_session(session_id, {
             "conversation_history": history
         })
-    
-    def get_extracted_data(self, quotation_id: str) -> Dict[str, Any]:
+
+    def get_extracted_data(self, session_id: str) -> Dict[str, Any]:
         """Get extracted data from agent session"""
-        session_data = self.memory_store.get_agent_session(quotation_id)
+        session_data = self.memory_store.get_agent_session(session_id)
         if session_data:
             return session_data.get("extracted_data", {})
         return {}
-    
-    def save_extracted_data(self, quotation_id: str, extracted_data: Dict[str, Any]) -> None:
+
+    def save_extracted_data(self, session_id: str, extracted_data: Dict[str, Any]) -> None:
         """Save extracted data"""
-        self.memory_store.update_agent_session(quotation_id, {
+        self.memory_store.update_agent_session(session_id, {
             "extracted_data": extracted_data
         })
-    
-    def get_tool_results(self, quotation_id: str) -> Dict[str, Any]:
+
+    def get_tool_results(self, session_id: str) -> Dict[str, Any]:
         """Get tool results from agent session"""
-        session_data = self.memory_store.get_agent_session(quotation_id)
+        session_data = self.memory_store.get_agent_session(session_id)
         if session_data:
             return session_data.get("tool_results", {})
         return {}
-    
-    def save_tool_results(self, quotation_id: str, tool_results: Dict[str, Any]) -> None:
+
+    def save_tool_results(self, session_id: str, tool_results: Dict[str, Any]) -> None:
         """Save tool results"""
-        self.memory_store.update_agent_session(quotation_id, {
+        self.memory_store.update_agent_session(session_id, {
             "tool_results": tool_results
         })
-    
-    def initialize_session(self, quotation_id: str, initial_data: Optional[Dict[str, Any]] = None) -> None:
+
+    def initialize_session(self, session_id: str, initial_data: Optional[Dict[str, Any]] = None) -> None:
         """Initialize a new agent session"""
         session_data = initial_data or {
             "conversation_history": [],
@@ -98,23 +98,23 @@ class MemoryManager:
             "tool_results": {},
             "confidence_scores": {}
         }
-        self.memory_store.set_agent_session(quotation_id, session_data)
-    
-    def update_session(self, quotation_id: str, updates: Dict[str, Any]) -> None:
+        self.memory_store.set_agent_session(session_id, session_data)
+
+    def update_session(self, session_id: str, updates: Dict[str, Any]) -> None:
         """Update agent session with partial data"""
-        self.memory_store.update_agent_session(quotation_id, updates)
-    
-    def get_session_state(self, quotation_id: str) -> Dict[str, Any]:
+        self.memory_store.update_agent_session(session_id, updates)
+
+    def get_session_state(self, session_id: str) -> Dict[str, Any]:
         """Get full session state"""
-        return self.memory_store.get_agent_session(quotation_id) or {}
-    
+        return self.memory_store.get_agent_session(session_id) or {}
+
     def save_quotation_to_history(self, user_id: str, quotation_data: Dict[str, Any]) -> None:
         """Save a completed quotation to user's history"""
         self.memory_store.add_past_quotation(user_id, quotation_data)
-    
-    def clear_session(self, quotation_id: str) -> None:
+
+    def clear_session(self, session_id: str) -> None:
         """Clear agent session"""
-        self.memory_store.clear_agent_session(quotation_id)
+        self.memory_store.clear_agent_session(session_id)
     
     def get_common_requirements(self, user_id: Optional[str] = None) -> Dict[str, Any]:
         """Get common requirements from past quotations"""

@@ -18,12 +18,19 @@ class ConversationMemory(Base):
 
 
 class AgentSession(Base):
-    """Stores agent session memory (conversation history, extracted data, tool results)"""
+    """
+    Stores agent session memory (conversation history, extracted data, tool results).
+    Sessions are independent of quotations and linked via foreign key.
+    """
     __tablename__ = "agent_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    quotation_id = Column(String(255), unique=True, index=True, nullable=False)
-    session_data = Column(JSON, nullable=False)  # Stores full session state
+    session_id = Column(String(255), unique=True, nullable=False, index=True)  # Unique session identifier
+    quotation_id = Column(String(255), ForeignKey('quotations.id', ondelete='CASCADE'), nullable=True, index=True)  # Optional link to quotation
+    session_data = Column(JSON, nullable=True)  # Stores full session state
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationship
+    quotation = relationship("Quotation", back_populates="sessions")
 

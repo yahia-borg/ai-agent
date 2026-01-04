@@ -27,6 +27,6 @@ markdown
 openpyxl
 qdrant-client>=1.7.0
 sentence-transformers>=2.2.0
-torch>=2.0.0
+# torch>=2.0.0
 python-bidi>=0.4.2
 arabic-reshaper>=3.0.0

@@ -20,21 +20,29 @@ class QdrantService:
     def __init__(self):
         self.qdrant_url = getattr(settings, 'QDRANT_URL', 'http://localhost:6333')
         self.qdrant_api_key = getattr(settings, 'QDRANT_API_KEY', None)
-        self.embedding_model_name = getattr(settings, 'EMBEDDING_MODEL', 
+        self.embedding_model_name = getattr(settings, 'EMBEDDING_MODEL',
                                            'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
-        
+        self.embedding_model_path = getattr(settings, 'EMBEDDING_MODEL_PATH', '')
+
         # Initialize Qdrant client
         if self.qdrant_api_key:
             self.client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key)
         else:
             self.client = QdrantClient(url=self.qdrant_url)
-        
-        # Initialize embedding model
-        logger.info(f"Loading embedding model: {self.embedding_model_name}")
-        self.embedding_model = SentenceTransformer(self.embedding_model_name)
+
+        # Initialize embedding model - prioritize local path if available
+        if self.embedding_model_path and os.path.exists(self.embedding_model_path):
+            logger.info(f"Loading embedding model from local path: {self.embedding_model_path}")
+            self.embedding_model = SentenceTransformer(self.embedding_model_path)
+        else:
+            logger.info(f"Loading embedding model from HuggingFace: {self.embedding_model_name}")
+            if self.embedding_model_path:
+                logger.warning(f"Local model path not found: {self.embedding_model_path}")
+            self.embedding_model = SentenceTransformer(self.embedding_model_name)
+
         self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
         logger.info(f"Embedding dimension: {self.embedding_dim}")
-        
+
         self.collection_name = "knowledge_items"
     
     def init_collection(self, collection_name: str = None, recreate: bool = False):
@@ -130,22 +138,35 @@ class QdrantService:
             query_embedding = self.embedding_model.encode([query])[0].tolist()
             
             # Search
-            results = self.client.search(
-                collection_name=self.collection_name,
-                query_vector=query_embedding,
-                limit=top_k
-            )
+            if hasattr(self.client, "search"):
+                results = self.client.search(
+                    collection_name=self.collection_name,
+                    query_vector=query_embedding,
+                    limit=top_k
+                )
+            elif hasattr(self.client, "query_points"):
+                # Fallback for newer clients that might favor query_points or if search is behaving oddly
+                response = self.client.query_points(
+                    collection_name=self.collection_name,
+                    query=query_embedding,
+                    limit=top_k
+                )
+                results = response.points
+            else:
+                # Last resort or error
+                raise AttributeError("QdrantClient has neither 'search' nor 'query_points' methods.")
             
             # Format results
             formatted_results = []
             for result in results:
+                payload = result.payload or {}
                 formatted_results.append({
                     "score": result.score,
-                    "topic": result.payload.get("topic", ""),
-                    "content": result.payload.get("content", ""),
-                    "source_document": result.payload.get("source_document", ""),
-                    "page_number": result.payload.get("page_number", 1),
-                    "content_id": result.payload.get("content_id")
+                    "topic": payload.get("topic", ""),
+                    "content": payload.get("content", ""),
+                    "source_document": payload.get("source_document", ""),
+                    "page_number": payload.get("page_number", 1),
+                    "content_id": payload.get("content_id")
                 })
             
             return formatted_results

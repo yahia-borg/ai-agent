@@ -13,12 +13,30 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+from contextlib import asynccontextmanager
+from app.services.qdrant_service import get_qdrant_service
+from app.core.langsmith_config import get_langsmith_callbacks
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load embedding model on startup
+    logger = logging.getLogger(__name__)
+    logger.info("Loading embedding model on startup...")
+    get_qdrant_service()
+    
+    # Initialize LangSmith tracing (sets environment variables)
+    get_langsmith_callbacks()
+    
+    yield
+    # Clean up resources if needed (e.g. close DB connections)
+
 app = FastAPI(
     title="AI Construction Agent API",
     description="API for AI-powered construction quotation generation",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Store environment in app state

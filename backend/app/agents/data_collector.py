@@ -38,11 +38,12 @@ class DataCollectorAgent(BaseAgent):
         
         try:
             response = await self.llm.invoke(extraction_prompt, system_prompt)
-            
+
             # Extract JSON from response (handle markdown code blocks)
             json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response, re.DOTALL)
             if json_match:
-                extracted_data = json.loads(json_match.group())
+                json_str = json_match.group()
+                extracted_data = json.loads(json_str)
             else:
                 # Fallback: try to parse entire response
                 extracted_data = json.loads(response)
@@ -64,7 +65,19 @@ class DataCollectorAgent(BaseAgent):
                 "detected_language": detected_lang
             }
             
+        except json.JSONDecodeError as e:
+            # Log the parsing error with more details
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"JSON parsing error in DataCollectorAgent: {str(e)}")
+            logger.error(f"LLM Response: {response[:500] if 'response' in locals() else 'No response'}")
+            # Fallback to basic extraction
+            return self._fallback_extraction(quotation)
         except Exception as e:
+            # Log other errors
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in DataCollectorAgent.execute: {str(e)}", exc_info=True)
             # Fallback to basic extraction
             return self._fallback_extraction(quotation)
     
@@ -74,9 +87,19 @@ class DataCollectorAgent(BaseAgent):
         if quotation.project_type:
             data["project_type"] = quotation.project_type.value
         
+        # Ensure location_details exists and is properly formatted
+        if "location_details" not in data or not isinstance(data["location_details"], dict):
+            data["location_details"] = {}
+
         # Use provided zip_code if available
-        if quotation.zip_code and "location_details" in data:
+        if quotation.zip_code:
             data["location_details"]["zip_code"] = quotation.zip_code
+        
+        # Ensure status fields are strings or None
+        if "current_finish_level" not in data:
+            data["current_finish_level"] = None
+        if "target_finish_level" not in data:
+            data["target_finish_level"] = None
         
         # Ensure confidence score is between 0 and 1
         if "confidence_score" in data:
@@ -145,9 +168,7 @@ class DataCollectorAgent(BaseAgent):
                 "project_type": project_type or "residential",
                 "size_sqft": size_sqft,
                 "size_sqm": size_sqm,
-                "location_details": {
-                    "zip_code": quotation.zip_code or None
-                },
+                "location_details": {},
                 "timeline_weeks": timeline_weeks,
                 "key_requirements": [],
                 "confidence_score": 0.5,

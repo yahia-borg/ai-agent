@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, JSO
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
+from datetime import datetime
 from app.core.database import Base
 
 
@@ -17,7 +18,6 @@ class QuotationStatus(str, enum.Enum):
 class ProjectType(str, enum.Enum):
     RESIDENTIAL = "residential"
     COMMERCIAL = "commercial"
-    RENOVATION = "renovation"
     NEW_CONSTRUCTION = "new_construction"
 
 
@@ -28,6 +28,7 @@ class Quotation(Base):
     project_description = Column(String, nullable=False)
     location = Column(String)
     zip_code = Column(String)
+    sessions = relationship("AgentSession", back_populates="quotation", cascade="all, delete-orphan")
     project_type = Column(SQLEnum(ProjectType), nullable=True)
     timeline = Column(String)
     status = Column(SQLEnum(QuotationStatus), default=QuotationStatus.PENDING, nullable=False)
@@ -43,7 +44,7 @@ class QuotationData(Base):
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     quotation_id = Column(String, ForeignKey("quotations.id"), unique=True, nullable=False)
-    extracted_data = Column(JSON, nullable=True)
+    extracted_data = Column(JSON, nullable=True)  # Contains current_finish_level, target_finish_level, etc.
     confidence_score = Column(Float, nullable=True)
     cost_breakdown = Column(JSON, nullable=True)
     total_cost = Column(Float, nullable=True)
@@ -52,4 +53,3 @@ class QuotationData(Base):
     
     # Relationships
     quotation = relationship("Quotation", back_populates="quotation_data")
-

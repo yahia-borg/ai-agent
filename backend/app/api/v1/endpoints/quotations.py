@@ -10,6 +10,7 @@ from io import BytesIO
 
 from app.core.database import get_db
 from app.models.quotation import Quotation, QuotationStatus, QuotationData
+from app.services.session_service import SessionService
 from app.schemas.quotation import (
     QuotationCreate,
     QuotationResponse,
@@ -268,6 +269,50 @@ async def list_quotations(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """List all quotations"""
-    quotations = db.query(Quotation).offset(skip).limit(limit).all()
+    """List all quotations (ordered by most recent first)"""
+    quotations = db.query(Quotation).order_by(
+        Quotation.created_at.desc()
+    ).offset(skip).limit(limit).all()
     return quotations
+
+
+@router.get("/sessions/{session_id}/quotation")
+async def get_session_quotation(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the quotation associated with a session.
+
+    Returns quotation_id if the session has a linked quotation, otherwise null.
+    """
+    quotation = SessionService.get_session_quotation(db, session_id)
+
+    if not quotation:
+        return {"quotation_id": None, "message": "No quotation linked to this session"}
+
+    return {"quotation_id": quotation.id}
+
+
+@router.post("/sessions/{session_id}/quotation")
+async def create_quotation_for_session(
+    session_id: str,
+    project_description: str = "New construction project",
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new quotation and link it to the session.
+
+    Use this when the user wants to start a new quotation in the current session.
+    """
+    quotation = SessionService.create_new_quotation_for_session(
+        db,
+        session_id,
+        project_description
+    )
+
+    return {
+        "quotation_id": quotation.id,
+        "session_id": session_id,
+        "message": "New quotation created and linked to session"
+    }

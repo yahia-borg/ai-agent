@@ -35,30 +35,25 @@ def get_multilingual_prompt(language: str) -> dict:
     """Get multilingual prompts based on detected language"""
     prompts = {
         "ar": {
-            "system": """أنت وكيل استخراج بيانات لمشاريع البناء في مصر.
+            "system": """أنت مساعد لاستخراج بيانات مشاريع البناء.
 استخرج المعلومات الرئيسية من أوصاف المشاريع وأعد بيانات JSON منظمة.
-ركز على: نوع المشروع، المساحة (بالمتر المربع أو القدم المربع)، تفاصيل الموقع (المحافظة/المدينة)، الجدول الزمني، والمتطلبات الرئيسية.
+ركز على: نوع المشروع، المساحة (بالمتر المربع أو القدم المربع)، الجدول الزمني، والمتطلبات الرئيسية.
 يمكنك فهم النصوص بالعربية والإنجليزية.
 الأسعار بالجنيه المصري (EGP).""",
-            "extraction": """استخرج المعلومات المنظمة من وصف مشروع البناء هذا (مشروع في مصر):
+            "extraction": """استخرج المعلومات المنظمة من وصف مشروع البناء هذا:
 
 "{description}"
 
 الموقع: {location}
-الرمز البريدي: {zip_code}
 نوع المشروع: {project_type}
 الجدول الزمني: {timeline}
 
 أعد كائن JSON بالهيكل التالي:
 {{
-    "project_type": "residential|commercial|renovation|new_construction",
-    "size_sqft": <رقم أو null>,
+    "project_type": "residential|commercial|new_construction|null",
     "size_sqm": <رقم أو null>,
-    "location_details": {{
-        "city": "<اسم المدينة>",
-        "governorate": "<اسم المحافظة>",
-        "zip_code": "<الرمز البريدي>"
-    }},
+    "current_finish_level": "core_shell|semi_finished|finished|old_finish",
+    "target_finish_level": "semi_finished|fully_finished|luxury_finished",
     "timeline_weeks": <رقم أو null>,
     "key_requirements": ["المتطلب1", "المتطلب2", ...],
     "confidence_score": <0.0 إلى 1.0>,
@@ -67,35 +62,31 @@ def get_multilingual_prompt(language: str) -> dict:
     "detected_language": "ar|en|mixed"
 }}
 
-ملاحظة: استخرج المساحة بالمتر المربع (sqm) والقدم المربع (sqft) إن وُجدت. إذا وُجدت واحدة فقط، احسب الأخرى (1 متر مربع = 10.764 قدم مربع).
+ملاحظة: استخرج المساحة بالمتر المربع (sqm).
+الموقع اختياري - إذا ذُكر، أضفه في key_requirements.
 الأسعار بالجنيه المصري (EGP).
 كن دقيقاً ومحافظاً في تقدير درجات الثقة. أضف أسئلة متابعة فقط إذا كانت الثقة < 0.7."""
         },
         "en": {
-            "system": """You are a construction project data extraction agent for Egypt.
+            "system": """You are a construction project data extraction assistant.
 Extract key information from project descriptions and return structured JSON data.
-Focus on: project type, size (sqm or sq ft), location details (governorate/city), timeline, and key requirements.
+Focus on: project type, size (sqm), timeline, and key requirements.
 You can understand texts in both Arabic and English.
 Prices are in Egyptian Pounds (EGP).""",
-            "extraction": """Extract structured information from this construction project description (project in Egypt):
+            "extraction": """Extract structured information from this construction project description:
 
 "{description}"
 
 Location: {location}
-Zip Code: {zip_code}
 Project Type: {project_type}
 Timeline: {timeline}
 
 Return a JSON object with the following structure:
 {{
-    "project_type": "residential|commercial|renovation|new_construction",
-    "size_sqft": <number or null>,
+    "project_type": "residential|commercial|new_construction|null",
     "size_sqm": <number or null>,
-    "location_details": {{
-        "city": "<city name>",
-        "governorate": "<governorate name>",
-        "zip_code": "<zip code>"
-    }},
+    "current_finish_level": "core_shell|semi_finished|finished|old_finish",
+    "target_finish_level": "semi_finished|fully_finished|luxury_finished",
     "timeline_weeks": <number or null>,
     "key_requirements": ["requirement1", "requirement2", ...],
     "confidence_score": <0.0 to 1.0>,
@@ -104,35 +95,31 @@ Return a JSON object with the following structure:
     "detected_language": "ar|en|mixed"
 }}
 
-Note: Extract size in both sqft and sqm if mentioned. If only one is provided, calculate the other (1 sqm = 10.764 sqft).
+Note: Extract size in sqm.
+Location is optional - if mentioned, add it to key_requirements.
 Prices are in Egyptian Pounds (EGP).
 Be accurate and conservative with confidence scores. Only include follow-up questions if confidence < 0.7."""
         },
         "mixed": {
-            "system": """You are a construction project data extraction agent for Egypt that understands both Arabic and English.
+            "system": """You are a construction project data extraction assistant that understands both Arabic and English.
 Extract key information from project descriptions in any language and return structured JSON data.
-Focus on: project type, size (sqm or sq ft), location details (governorate/city), timeline, and key requirements.
+Focus on: project type, size (sqm), location details (governorate/city), timeline, and key requirements.
 Respond in the same language(s) as the input when appropriate.
 Prices are in Egyptian Pounds (EGP).""",
-            "extraction": """Extract structured information from this construction project description (project in Egypt, may contain Arabic and/or English):
+            "extraction": """Extract structured information from this construction project description:
 
 "{description}"
 
 Location: {location}
-Zip Code: {zip_code}
 Project Type: {project_type}
 Timeline: {timeline}
 
 Return a JSON object with the following structure:
 {{
-    "project_type": "residential|commercial|renovation|new_construction",
-    "size_sqft": <number or null>,
+    "project_type": "residential|commercial|new_construction|null",
     "size_sqm": <number or null>,
-    "location_details": {{
-        "city": "<city name>",
-        "governorate": "<governorate name>",
-        "zip_code": "<zip code>"
-    }},
+    "current_finish_level": "core_shell|semi_finished|finished|old_finish",
+    "target_finish_level": "semi_finished|fully_finished|luxury_finished",
     "timeline_weeks": <number or null>,
     "key_requirements": ["requirement1", "requirement2", ...],
     "confidence_score": <0.0 to 1.0>,
@@ -141,7 +128,8 @@ Return a JSON object with the following structure:
     "detected_language": "ar|en|mixed"
 }}
 
-Note: Extract size in both sqft and sqm if mentioned. If only one is provided, calculate the other (1 sqm = 10.764 sqft).
+Note: Extract size in sqm.
+Location is optional - if mentioned, add it to key_requirements.
 Prices are in Egyptian Pounds (EGP).
 Be accurate and conservative with confidence scores. Only include follow-up questions if confidence < 0.7."""
         }

@@ -4,6 +4,7 @@ Supports both PostgreSQL (primary) and Redis (optional cache)
 """
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import and_
 from app.models.memory import ConversationMemory, AgentSession
 import json
@@ -58,11 +59,13 @@ class MemoryStore:
             conditions.append(ConversationMemory.user_id == user_id)
         if quotation_id:
             conditions.append(ConversationMemory.quotation_id == quotation_id)
-        
+
         existing = query.filter(and_(*conditions)).first()
-        
+
         if existing:
             existing.value = value
+            # Explicitly mark JSON field as modified for SQLAlchemy change detection
+            flag_modified(existing, "value")
         else:
             memory = ConversationMemory(
                 key=key,
@@ -71,7 +74,7 @@ class MemoryStore:
                 quotation_id=quotation_id
             )
             self.db.add(memory)
-        
+
         self.db.commit()
     
     def get_user_preferences(self, user_id: str) -> Dict[str, Any]:
@@ -101,41 +104,45 @@ class MemoryStore:
         )
     
     # Agent Session Memory Methods
-    
-    def get_agent_session(self, quotation_id: str) -> Optional[Dict[str, Any]]:
-        """Get agent session data"""
+
+    def get_agent_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get agent session data by session_id"""
         session = self.db.query(AgentSession).filter(
-            AgentSession.quotation_id == quotation_id
+            AgentSession.session_id == session_id
         ).first()
         return session.session_data if session else None
-    
-    def set_agent_session(self, quotation_id: str, session_data: Dict[str, Any]) -> None:
-        """Set agent session data"""
+
+    def set_agent_session(self, session_id: str, session_data: Dict[str, Any]) -> None:
+        """Set agent session data by session_id"""
         session = self.db.query(AgentSession).filter(
-            AgentSession.quotation_id == quotation_id
+            AgentSession.session_id == session_id
         ).first()
-        
+
         if session:
             session.session_data = session_data
+            # Explicitly mark JSON field as modified for SQLAlchemy change detection
+            flag_modified(session, "session_data")
         else:
             session = AgentSession(
-                quotation_id=quotation_id,
+                session_id=session_id,
+                quotation_id=None,  # Will be set separately via SessionService
                 session_data=session_data
             )
             self.db.add(session)
-        
+
         self.db.commit()
-    
-    def update_agent_session(self, quotation_id: str, updates: Dict[str, Any]) -> None:
+
+    def update_agent_session(self, session_id: str, updates: Dict[str, Any]) -> None:
         """Update agent session data with partial updates"""
-        session_data = self.get_agent_session(quotation_id) or {}
-        session_data.update(updates)
-        self.set_agent_session(quotation_id, session_data)
-    
-    def clear_agent_session(self, quotation_id: str) -> None:
+        session_data = self.get_agent_session(session_id) or {}
+        # Create new dict object to ensure SQLAlchemy detects change (defense-in-depth)
+        new_session_data = {**session_data, **updates}
+        self.set_agent_session(session_id, new_session_data)
+
+    def clear_agent_session(self, session_id: str) -> None:
         """Clear agent session data"""
         session = self.db.query(AgentSession).filter(
-            AgentSession.quotation_id == quotation_id
+            AgentSession.session_id == session_id
         ).first()
         if session:
             self.db.delete(session)

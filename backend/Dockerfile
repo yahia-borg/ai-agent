@@ -1,20 +1,36 @@
-FROM python:3.12-slim
+FROM nvidia/cuda:12.6.1-runtime-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Africa/Cairo \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies including fonts for PDF generation
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3.11-venv \
+    python3-pip \
     gcc \
     g++ \
     postgresql-client \
     fonts-dejavu \
     libyaml-dev \
+    && apt-get purge -y --auto-remove software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Set Python 3.11 as default
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    python3.11 -m ensurepip --upgrade
+
+# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel cython
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python3 -m pip install --no-cache-dir --break-system-packages torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 && \
+    python3 -m pip install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy application code
 COPY . .

@@ -1,66 +1,25 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from app.agents.base_agent import BaseAgent
 from app.models.quotation import Quotation
 from app.core.config import settings
-from app.agent.tools import search_materials, search_labor_rates
+from app.core.database import SessionLocal
+from app.models.resources import Material, LaborRate
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CostCalculatorAgent(BaseAgent):
-    """Agent responsible for calculating construction costs (Egypt market)"""
-    
+    """
+    Agent responsible for calculating construction costs using database values.
+
+    All pricing, labor rates, and material costs are fetched from the database.
+    No hardcoded values - fully data-driven.
+    """
+
     def __init__(self):
         super().__init__("cost_calculator")
-        # Egypt market pricing data (EGP - Egyptian Pounds)
-        # Prices per square meter (common unit in Egypt)
-        self.material_costs = {
-            "flooring": {
-                "carpet": 150,  # EGP per sqm
-                "hardwood": 400,  # EGP per sqm
-                "luxury_vinyl": 250,  # EGP per sqm
-                "tile": 200,  # EGP per sqm (ceramic/porcelain)
-                "marble": 600  # EGP per sqm
-            },
-            "lighting": {
-                "basic": 500,  # EGP per fixture
-                "standard": 1500,  # EGP per fixture
-                "premium": 3000  # EGP per fixture
-            },
-            "fixtures": {
-                "basic": 2000,  # EGP
-                "standard": 5000,  # EGP
-                "premium": 10000  # EGP
-            },
-            "paint": {
-                "basic": 80,  # EGP per sqm
-                "standard": 120,  # EGP per sqm
-                "premium": 200  # EGP per sqm
-            }
-        }
-        
-        # Egypt labor rates (EGP per hour)
-        self.labor_rates = {
-            "general_contractor": 150,  # EGP/hour
-            "electrician": 120,  # EGP/hour
-            "plumber": 100,  # EGP/hour
-            "carpenter": 100,  # EGP/hour
-            "painter": 80,  # EGP/hour
-            "tiler": 120,  # EGP/hour
-            "plasterer": 90  # EGP/hour
-        }
-        
-        # Egypt regional cost multipliers by city/governorate
-        self.regional_multipliers = {
-            "cairo": 1.2,  # Cairo (higher costs)
-            "alexandria": 1.15,  # Alexandria
-            "giza": 1.1,  # Giza
-            "new_cairo": 1.25,  # New Cairo (premium area)
-            "6_october": 1.2,  # 6th October City
-            "new_capital": 1.3,  # New Administrative Capital
-            "default": 1.0  # Other areas
-        }
-        
-        # Currency configuration
         self.currency = settings.DEFAULT_CURRENCY  # EGP
         self.currency_symbol = "EGP"
     
@@ -74,223 +33,242 @@ class CostCalculatorAgent(BaseAgent):
         elif unit.lower() in ["sqft", "sf", "foot", "قدم"]:
             return size * 0.092903  # Convert sqft to sqm
         return size * 0.092903  # Default assume sqft
-    
-    def _detect_egypt_location(self, location: str, zip_code: str) -> str:
-        """Detect Egypt location for regional pricing"""
-        if not location:
-            return "default"
-        
-        location_lower = location.lower()
-        
-        # Check for major Egyptian cities
-        if any(city in location_lower for city in ["cairo", "القاهرة", "القاهره"]):
-            if "new" in location_lower or "جديد" in location_lower:
-                return "new_cairo"
-            return "cairo"
-        elif any(city in location_lower for city in ["alexandria", "الإسكندرية", "اسكندريه"]):
-            return "alexandria"
-        elif any(city in location_lower for city in ["giza", "الجيزة", "جيزه"]):
-            return "giza"
-        elif any(city in location_lower for city in ["6 october", "6th october", "أكتوبر", "السادس"]):
-            return "6_october"
-        elif any(city in location_lower for city in ["new capital", "العاصمة", "الادارية"]):
-            return "new_capital"
-        
-        return "default"
-    
-    async def _get_material_cost_per_sqm(self, extracted_data: Dict[str, Any]) -> float:
-        """Get material cost per sqm using tools or fallback to default"""
+
+    async def _query_qdrant_for_requirements(self, extracted_data: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Query Qdrant knowledge base to determine what materials and labor are needed.
+
+        Based on:
+        - Current finishing level (bare_concrete, plastered, semi_finished, painted)
+        - Target finishing level
+        - Project type
+
+        Returns dict with 'materials' and 'labor' lists
+        """
         try:
-            # Try to get materials from extracted data or search
-            key_requirements = extracted_data.get("key_requirements", [])
+            from app.services.qdrant_service import get_qdrant_service
+
+            current_finish = extracted_data.get("current_finish_level", "plastered")
+            target_finish = extracted_data.get("target_finish_level", "standard")
             project_type = extracted_data.get("project_type", "residential")
-            
-            # Search for common materials
-            material_queries = ["cement", "tiles", "paint"]
-            if project_type == "residential":
-                material_queries.extend(["porcelain", "marble"])
-            
-            total_price = 0
-            count = 0
-            
-            for query in material_queries[:3]:  # Limit to 3 queries
-                try:
-                    result = search_materials.invoke({"query": query})
-                    if result and result != "No materials found matching that query.":
-                        materials = json.loads(result)
-                        if isinstance(materials, list) and materials:
-                            # Get average price
-                            prices = [m.get("price", 0) for m in materials if m.get("price")]
-                            if prices:
-                                total_price += sum(prices) / len(prices)
-                                count += 1
-                except Exception as e:
-                    continue
-            
-            if count > 0:
-                avg_material_price = total_price / count
-                # Estimate cost per sqm (materials typically 30-50% of total, so multiply by 2-3)
-                return avg_material_price * 2.5
+
+            # Build query for Qdrant
+            query = f"What materials and labor are needed for {project_type} project "
+            query += f"from {current_finish} to {target_finish} finishing level?"
+
+            logger.info(f"Querying Qdrant: {query}")
+
+            qdrant = get_qdrant_service()
+            results = qdrant.search_knowledge(query, top_k=5)
+
+            # Extract material and labor mentions from Qdrant results
+            materials_mentioned = set()
+            labor_mentioned = set()
+
+            for result in results:
+                content = result.get("content", "").lower()
+
+                # Extract material keywords
+                material_keywords = ["cement", "sand", "tile", "ceramic", "porcelain", "marble",
+                                   "paint", "plaster", "gypsum", "wood", "parquet", "granite",
+                                   "pipes", "wiring", "electrical", "plumbing", "doors", "windows"]
+
+                for keyword in material_keywords:
+                    if keyword in content:
+                        materials_mentioned.add(keyword)
+
+                # Extract labor keywords
+                labor_keywords = ["mason", "electrician", "plumber", "carpenter", "painter",
+                                "tiler", "plasterer", "foreman", "supervisor"]
+
+                for keyword in labor_keywords:
+                    if keyword in content:
+                        labor_mentioned.add(keyword)
+
+            logger.info(f"Qdrant suggested materials: {materials_mentioned}")
+            logger.info(f"Qdrant suggested labor: {labor_mentioned}")
+
+            return {
+                "materials": list(materials_mentioned) if materials_mentioned else ["cement", "tile", "paint"],
+                "labor": list(labor_mentioned) if labor_mentioned else ["mason", "painter"]
+            }
+
         except Exception as e:
-            pass
-        
-        # Fallback to default
-        return 3000.0  # EGP per sqm (mid-range)
+            logger.warning(f"Error querying Qdrant: {e}. Using fallback.")
+            # Fallback: basic materials and labor
+            return {
+                "materials": ["cement", "tile", "paint", "plaster"],
+                "labor": ["mason", "electrician", "plumber", "painter"]
+            }
     
-    async def _get_average_labor_rate(self) -> float:
-        """Get average labor rate using tools or fallback to default"""
+    async def _fetch_materials_from_db(self, material_queries: List[str]) -> List[Dict[str, Any]]:
+        """
+        Fetch materials from database based on queries from Qdrant.
+
+        Returns list of materials with pricing.
+        """
+        db = SessionLocal()
         try:
-            # Search for common labor roles
-            labor_queries = ["electrician", "plumber", "carpenter", "painter", "tiler"]
-            
-            total_rate = 0
-            count = 0
-            
+            materials = []
+
+            for query in material_queries:
+                # Query database for matching materials
+                db_materials = db.query(Material).filter(
+                    Material.name.ilike(f'%{query}%')
+                ).limit(5).all()
+
+                for m in db_materials:
+                    materials.append({
+                        "name": m.name,
+                        "price_per_unit": m.price_per_unit,
+                        "unit": m.unit,
+                        "currency": m.currency,
+                        "category": m.category
+                    })
+
+            logger.info(f"Fetched {len(materials)} materials from database")
+            return materials
+
+        except Exception as e:
+            logger.error(f"Error fetching materials from DB: {e}")
+            return []
+        finally:
+            db.close()
+    
+    async def _fetch_labor_rates_from_db(self, labor_queries: List[str]) -> List[Dict[str, Any]]:
+        """
+        Fetch labor rates from database based on queries from Qdrant.
+
+        Returns list of labor rates.
+        """
+        db = SessionLocal()
+        try:
+            labor_rates = []
+
             for query in labor_queries:
-                try:
-                    result = search_labor_rates.invoke({"query": query})
-                    if result and result != "No labor rates found.":
-                        labor_rates = json.loads(result)
-                        if isinstance(labor_rates, list) and labor_rates:
-                            rates = [l.get("hourly_rate", 0) for l in labor_rates if l.get("hourly_rate")]
-                            if rates:
-                                total_rate += sum(rates) / len(rates)
-                                count += 1
-                except Exception as e:
-                    continue
-            
-            if count > 0:
-                return total_rate / count
+                # Query database for matching labor roles
+                db_labor = db.query(LaborRate).filter(
+                    LaborRate.role.ilike(f'%{query}%')
+                ).limit(3).all()
+
+                for l in db_labor:
+                    labor_rates.append({
+                        "role": l.role,
+                        "hourly_rate": l.hourly_rate,
+                        "currency": l.currency
+                    })
+
+            logger.info(f"Fetched {len(labor_rates)} labor rates from database")
+            return labor_rates
+
         except Exception as e:
-            pass
-        
-        # Fallback to default
-        return sum(self.labor_rates.values()) / len(self.labor_rates)
-    
-    async def _get_labor_rate(self, role: str) -> float:
-        """Get labor rate for a specific role using tools or fallback"""
-        try:
-            result = search_labor_rates.invoke({"query": role})
-            if result and result != "No labor rates found.":
-                labor_rates = json.loads(result)
-                if isinstance(labor_rates, list) and labor_rates:
-                    # Find matching role
-                    for lr in labor_rates:
-                        if role.lower() in lr.get("role", "").lower():
-                            return lr.get("hourly_rate", 0)
-                    # Return first rate if no match
-                    if labor_rates:
-                        return labor_rates[0].get("hourly_rate", 0)
-        except Exception as e:
-            pass
-        
-        # Fallback to default
-        return self.labor_rates.get(role, 100)
+            logger.error(f"Error fetching labor rates from DB: {e}")
+            return []
+        finally:
+            db.close()
     
     async def execute(self, quotation: Quotation, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate construction costs based on extracted data (Egypt market)"""
-        
+        """
+        Calculate construction costs using Qdrant knowledge + database pricing.
+
+        Process:
+        1. Query Qdrant to understand what materials/labor are needed
+        2. Fetch actual pricing from PostgreSQL database
+        3. Calculate costs based on project size and real prices
+        """
+
         extracted_data = context.get("extracted_data", {})
-        
+
         # Get size - support both sqft and sqm
         size_sqft = extracted_data.get("size_sqft") or extracted_data.get("size_sqm")
         size_unit = "sqm" if extracted_data.get("size_sqm") else "sqft"
-        
-        if not size_sqft:
-            size_sqft = 100  # Default 100 sqm (approximately 1076 sqft)
-            size_unit = "sqm"
-        
+
         # Convert to square meters (Egypt standard)
         size_sqm = self._convert_to_sqm(size_sqft, size_unit)
         project_type = extracted_data.get("project_type", "residential")
-        
-        # Get regional multiplier for Egypt
-        location_key = self._detect_egypt_location(quotation.location or "", quotation.zip_code or "")
-        regional_multiplier = self.regional_multipliers.get(location_key, self.regional_multipliers["default"])
-        
-        # Calculate material costs using tools if available, otherwise use defaults
-        material_cost_per_sqm = await self._get_material_cost_per_sqm(extracted_data)
-        total_material_cost = size_sqm * material_cost_per_sqm * regional_multiplier
-        
-        # Calculate labor costs (Egypt market)
-        # Estimate labor hours based on project size and type (per sqm)
-        if project_type == "renovation":
-            labor_hours_per_sqm = 8.0  # Hours per sqm
-        elif project_type == "commercial":
-            labor_hours_per_sqm = 12.0  # Hours per sqm
-        else:
-            labor_hours_per_sqm = 10.0  # Hours per sqm
-        
-        total_labor_hours = size_sqm * labor_hours_per_sqm
-        avg_labor_rate = await self._get_average_labor_rate()
-        total_labor_cost = total_labor_hours * avg_labor_rate * regional_multiplier
-        
-        # Permits and fees (Egypt - estimated in EGP)
-        # Building permits in Egypt vary by project type and location
-        if project_type == "commercial":
-            permits_fees = 5000  # EGP
-        elif project_type == "new_construction":
-            permits_fees = 8000  # EGP
-        else:
-            permits_fees = 3000  # EGP
-        
-        # Contingency (10%)
-        subtotal = total_material_cost + total_labor_cost + permits_fees
+
+        logger.info(f"Calculating costs for {size_sqm} sqm {project_type} project")
+
+        # Step 1: Query Qdrant to understand requirements
+        requirements = await self._query_qdrant_for_requirements(extracted_data)
+        material_queries = requirements.get("materials", [])
+        labor_queries = requirements.get("labor", [])
+
+        # Step 2: Fetch pricing from database
+        materials = await self._fetch_materials_from_db(material_queries)
+        labor_rates = await self._fetch_labor_rates_from_db(labor_queries)
+
+        # Step 3: Calculate material costs
+        material_items = []
+        total_material_cost = 0
+
+        for material in materials:
+            # Estimate quantity based on project size
+            # Simple heuristic: assume materials cover the entire area
+            quantity = size_sqm
+            unit_price = material.get("price_per_unit", 0)
+            item_cost = quantity * unit_price
+
+            material_items.append({
+                "name": material.get("name"),
+                "quantity": round(quantity, 2),
+                "unit": material.get("unit", "sqm"),
+                "unit_price": round(unit_price, 2),
+                "cost": round(item_cost, 2),
+                "category": material.get("category", "General")
+            })
+
+            total_material_cost += item_cost
+
+        # Step 4: Calculate labor costs
+        labor_trades = []
+        total_labor_cost = 0
+
+        # Estimate total labor hours based on project size
+        # Simple heuristic: 10 hours per sqm on average
+        total_labor_hours = size_sqm * 10.0
+
+        if labor_rates:
+            # Distribute hours among available labor roles
+            hours_per_role = total_labor_hours / len(labor_rates)
+
+            for labor in labor_rates:
+                role = labor.get("role")
+                hourly_rate = labor.get("hourly_rate", 0)
+                role_hours = hours_per_role
+                role_cost = role_hours * hourly_rate
+
+                labor_trades.append({
+                    "trade": role,
+                    "hours": round(role_hours, 1),
+                    "rate": round(hourly_rate, 2),
+                    "cost": round(role_cost, 2)
+                })
+
+                total_labor_cost += role_cost
+
+        # Step 5: Calculate total
+        subtotal = total_material_cost + total_labor_cost
+
+        # Add contingency (10%)
         contingency = subtotal * 0.10
-        
-        # Markup (10%)
+
+        # Add markup (10%)
         markup = subtotal * 0.10
-        
-        # Total cost
+
         total_cost = subtotal + contingency + markup
-        
+
+        # Build cost breakdown
         cost_breakdown = {
             "materials": {
                 "subtotal": round(total_material_cost, 2),
-                "percentage": round((total_material_cost / total_cost) * 100, 1),
-                "items": [
-                    {
-                        "category": "general_materials",
-                        "cost": round(total_material_cost, 2),
-                        "quantity": round(size_sqm, 2),
-                        "unit": "sqm",
-                        "unit_cost": round(material_cost_per_sqm * regional_multiplier, 2)
-                    }
-                ]
+                "percentage": round((total_material_cost / total_cost) * 100, 1) if total_cost > 0 else 0,
+                "items": material_items
             },
             "labor": {
                 "subtotal": round(total_labor_cost, 2),
-                "percentage": round((total_labor_cost / total_cost) * 100, 1),
-                "trades": [
-                    {
-                        "trade": "general_contractor",
-                        "hours": round(total_labor_hours * 0.4, 1),
-                        "rate": await self._get_labor_rate("general_contractor"),
-                        "cost": round(total_labor_hours * 0.4 * await self._get_labor_rate("general_contractor") * regional_multiplier, 2)
-                    },
-                    {
-                        "trade": "electrician",
-                        "hours": round(total_labor_hours * 0.2, 1),
-                        "rate": await self._get_labor_rate("electrician"),
-                        "cost": round(total_labor_hours * 0.2 * await self._get_labor_rate("electrician") * regional_multiplier, 2)
-                    },
-                    {
-                        "trade": "plumber",
-                        "hours": round(total_labor_hours * 0.2, 1),
-                        "rate": await self._get_labor_rate("plumber"),
-                        "cost": round(total_labor_hours * 0.2 * await self._get_labor_rate("plumber") * regional_multiplier, 2)
-                    },
-                    {
-                        "trade": "carpenter",
-                        "hours": round(total_labor_hours * 0.2, 1),
-                        "rate": await self._get_labor_rate("carpenter"),
-                        "cost": round(total_labor_hours * 0.2 * await self._get_labor_rate("carpenter") * regional_multiplier, 2)
-                    }
-                ]
-            },
-            "permits_and_fees": {
-                "subtotal": round(permits_fees, 2),
-                "percentage": round((permits_fees / total_cost) * 100, 1)
+                "percentage": round((total_labor_cost / total_cost) * 100, 1) if total_cost > 0 else 0,
+                "trades": labor_trades
             },
             "contingency": {
                 "subtotal": round(contingency, 2),
@@ -306,14 +284,14 @@ class CostCalculatorAgent(BaseAgent):
                 }
             }
         }
-        
+
         return {
             "cost_breakdown": cost_breakdown,
             "total_cost": round(total_cost, 2),
             "currency": self.currency_symbol,
-            "region": "Egypt",
             "size_sqm": round(size_sqm, 2),
-            "regional_multiplier": regional_multiplier,
+            "materials_count": len(materials),
+            "labor_roles_count": len(labor_rates),
             "confidence_interval": {
                 "low": round(total_cost * 0.9, 2),
                 "high": round(total_cost * 1.1, 2),

@@ -57,7 +57,22 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: str = ""
     
     # Embedding Model Configuration (Hugging Face)
+    # Embedding Model Configuration (Hugging Face)
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    EMBEDDING_MODEL_PATH: str = ""
+
+    # Agent Limits
+    MAX_TOTAL_TURNS: int = 20
+    MAX_REQUIREMENTS_ATTEMPTS: int = 8
+    MAX_DATA_RETRIEVAL_ATTEMPTS: int = 3
+    MAX_CALCULATION_ATTEMPTS: int = 3
+    SESSION_TIMEOUT_MINUTES: int = 30
+
+    # LangSmith Configuration
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_PROJECT: str = "construction-agent"
+    LANGSMITH_TRACING: bool = False
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
     
     @property
     def cors_origins_list(self) -> List[str]:
@@ -69,6 +84,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

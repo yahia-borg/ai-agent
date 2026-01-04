@@ -21,7 +21,8 @@ class LLMClient:
                 "temperature": 0.3,
                 "api_key": settings.RUNPOD_API_KEY,
                 "streaming": False,
-                "max_tokens": 4096,  # Prevent negative token errors
+                "max_tokens": 8192,  # Prevent truncation
+                "extra_body": {"max_gen_len": 8192},
                 "default_headers": {
                     "Authorization": f"Bearer {settings.RUNPOD_API_KEY}"
                 }

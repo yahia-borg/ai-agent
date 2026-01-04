@@ -12,6 +12,7 @@ from app.agent.export import generate_pdf_quotation, generate_excel_quotation
 from langchain_core.tools import tool
 from app.utils.tool_cache import get_cached_result, set_cached_result
 from app.utils.quotation_descriptions import get_category_description
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ def extract_role_keyword(query: str) -> str:
     return keywords[0] if keywords else query
 
 @tool
-def search_materials(query: str) -> str:
+async def search_materials(query: str) -> str:
     """
     Search for materials in the database using intelligent multi-strategy matching.
     
@@ -240,8 +241,14 @@ def search_materials(query: str) -> str:
         # Limit to 10 results
         results = unique_results[:10]
         
-        # Log search patterns tried
-        logger.debug(f"search_materials query='{query}' strategies={search_strategies_tried} results={len(results)}")
+        # Log search results
+        if results:
+            result_names = [m.name for m in results]
+            logger.info(f"search_materials query='{query}' found {len(results)} items: {result_names}")
+        else:
+            logger.info(f"search_materials query='{query}' - no results found")
+        
+        logger.debug(f"search_materials query='{query}' strategies={search_strategies_tried}")
         
         if not results:
             # Provide helpful error message with suggestions
@@ -278,7 +285,7 @@ def search_materials(query: str) -> str:
         db.close()
 
 @tool
-def search_labor_rates(query: str) -> str:
+async def search_labor_rates(query: str) -> str:
     """
     Search for labor rates by role name using intelligent role extraction.
     
@@ -354,8 +361,14 @@ def search_labor_rates(query: str) -> str:
         # Limit to 5 results
         results = unique_results[:5]
         
-        # Log search patterns tried
-        logger.debug(f"search_labor_rates query='{query}' role_keyword='{role_keyword}' strategies={search_strategies_tried} results={len(results)}")
+        # Log search results
+        if results:
+            result_roles = [l.role for l in results]
+            logger.info(f"search_labor_rates query='{query}' found {len(results)} roles: {result_roles}")
+        else:
+            logger.info(f"search_labor_rates query='{query}' - no results found")
+            
+        logger.debug(f"search_labor_rates query='{query}' role_keyword='{role_keyword}' strategies={search_strategies_tried}")
         
         if not results:
             # Provide helpful suggestions
@@ -388,72 +401,57 @@ def search_labor_rates(query: str) -> str:
         db.close()
 
 @tool
-def search_standards(query: str) -> str:
+async def search_standards(query: str) -> str:
     """
     Search the Knowledge Base for construction standards, codes, or technical specifications.
     Useful for finding mix ratios, consumption rates, or building code requirements.
-    Supports searching for residential, commercial, apartment, finishing, etc.
     """
     # Check cache first
     cached = get_cached_result("search_standards", query)
     if cached is not None:
         return cached
     
-    db = SessionLocal()
     try:
-        # Split query into keywords for better matching
-        keywords = [kw.strip().lower() for kw in query.split() if len(kw.strip()) > 2]
+        from app.services.qdrant_service import get_qdrant_service
+        qdrant = get_qdrant_service()
         
-        # Build search filters - try to match any keyword in topic or content
-        filters = []
-        for keyword in keywords:
-            search_term = f"%{keyword}%"
-            filters.append(
-                or_(
-                    KnowledgeItem.topic.ilike(search_term),
-                    KnowledgeItem.content.ilike(search_term)
-                )
-            )
+        # Use Qdrant for semantic search
+        results = qdrant.search_knowledge(query, top_k=5)
         
-        # Also search for the full query string
-        full_search_term = f"%{query}%"
-        filters.append(
-            or_(
-                KnowledgeItem.topic.ilike(full_search_term),
-                KnowledgeItem.content.ilike(full_search_term)
-            )
-        )
-        
-        # Combine all filters with OR
-        combined_filter = or_(*filters) if filters else or_(
-            KnowledgeItem.topic.ilike(full_search_term),
-            KnowledgeItem.content.ilike(full_search_term)
-        )
-        
-        results = db.query(KnowledgeItem).filter(combined_filter).limit(5).all()  # Increased limit to 5
-
         if not results:
+            logger.info(f"search_standards query='{query}' - no results found")
             result = "No standards found in Knowledge Base."
         else:
+            # Log retrieval results
+            result_topics = [item.get("topic", "Unknown") for item in results]
+            logger.info(f"search_standards query='{query}' found {len(results)} items: {result_topics}")
+
+            # Format results
             items = []
             for item in results:
+                # QdrantService.search_knowledge returns list of dicts or objects
+                # Assuming it returns objects with 'payload' or similar, but let's check assumptions or use typical patterns
+                # If QdrantService.search_knowledge returns what we expect (payloads):
                 items.append({
-                    "topic": item.topic,
-                    "source": item.source_document,
-                    "page": item.page_number,
-                    "content_snippet": item.content[:800] + "..." if len(item.content) > 800 else item.content  # Increased snippet size
+                    "topic": item.get("topic", "Unknown"),
+                    "source": item.get("source", "Unknown"),
+                    "page": item.get("page", 0),
+                    "content_snippet": item.get("content", "")[:500] + "..."
                 })
             
             result = json.dumps(items, ensure_ascii=False)
-        
+            
         # Cache result
         set_cached_result("search_standards", result, query)
         return result
-    finally:
-        db.close()
+
+    except Exception as e:
+        logger.error(f"Error searching standards in Qdrant: {str(e)}")
+        # Fallback to empty if Qdrant fails, don't crash the agent
+        return "Error searching knowledge base."
 
 @tool
-def create_quotation(items_json: str, project_description: Optional[str] = None) -> str:
+async def create_quotation(items_json: str, project_description: Optional[str] = None) -> str:
     """
     Creates a formal quotation record in the database.
     
@@ -593,5 +591,93 @@ def create_quotation(items_json: str, project_description: Optional[str] = None)
     except Exception as e:
         db.rollback()
         return json.dumps({"error": f"Error creating quotation: {str(e)}"})
+    finally:
+        db.close()
+
+
+@tool
+async def export_quotation_pdf(quotation_id: str) -> str:
+    """
+    Export a quotation as a PDF file.
+
+    Args:
+        quotation_id: The ID of the quotation to export.
+
+    Returns:
+        Success message with file path or error message.
+    """
+    db = SessionLocal()
+    try:
+        # Fetch quotation
+        quotation = db.query(Quotation).filter(Quotation.id == quotation_id).first()
+        if not quotation:
+            return f"Error: Quotation {quotation_id} not found."
+
+        q_data = db.query(QuotationData).filter(QuotationData.quotation_id == quotation_id).first()
+        if not q_data or not q_data.cost_breakdown:
+            return "Error: No cost breakdown found. Please create a quotation first."
+
+        # Generate PDF
+        items = q_data.cost_breakdown
+        total_cost = q_data.total_cost or 0
+
+        filepath = generate_pdf_quotation(quotation_id, items, total_cost)
+
+        # Return success with file info
+        filename = os.path.basename(filepath)
+        return json.dumps({
+            "success": True,
+            "message": f"PDF generated successfully: {filename}",
+            "filepath": filepath,
+            "quotation_id": quotation_id
+        }, ensure_ascii=False)
+
+    except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}")
+        return json.dumps({"error": f"Error generating PDF: {str(e)}"})
+    finally:
+        db.close()
+
+
+@tool
+async def export_quotation_excel(quotation_id: str) -> str:
+    """
+    Export a quotation as an Excel file.
+
+    Args:
+        quotation_id: The ID of the quotation to export.
+
+    Returns:
+        Success message with file path or error message.
+    """
+    db = SessionLocal()
+    try:
+        # Fetch quotation
+        quotation = db.query(Quotation).filter(Quotation.id == quotation_id).first()
+        if not quotation:
+            return f"Error: Quotation {quotation_id} not found."
+
+        q_data = db.query(QuotationData).filter(QuotationData.quotation_id == quotation_id).first()
+        if not q_data or not q_data.cost_breakdown:
+            return "Error: No cost breakdown found. Please create a quotation first."
+
+        # Generate Excel
+        items = q_data.cost_breakdown
+        total_cost = q_data.total_cost or 0
+
+        filepath = generate_excel_quotation(quotation_id, items, total_cost)
+
+        # Return success with file info
+        filename = os.path.basename(filepath)
+        return json.dumps({
+            "success": True,
+            "message": f"Excel file generated successfully: {filename}",
+            "filepath": filepath,
+            "quotation_id": quotation_id
+        }, ensure_ascii=False)
+
+    except Exception as e:
+        logger.error(f"Error generating Excel: {str(e)}")
+        return json.dumps({"error": f"Error generating Excel: {str(e)}"})
     finally:
         db.close()

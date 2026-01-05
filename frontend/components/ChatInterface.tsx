@@ -48,12 +48,11 @@ export default function ChatInterface() {
         const newSessionId = generateSessionId();
         setSessionId(newSessionId);
         localStorage.setItem('chat_session_id', newSessionId);
-        
-        // Load quotation_id if exists (for quotation linking)
-        const savedQuotationId = localStorage.getItem('quotation_id');
-        if (savedQuotationId) {
-            setQuotationId(savedQuotationId);
-        }
+
+        // IMPORTANT: We do NOT load quotation_id from localStorage here
+        // fresh tabs/page reloads should start with a clean state
+        // to avoid linking new sessions to old project data.
+        setQuotationId(null);
     }, []);
 
     // Handle "New Chat" button
@@ -102,8 +101,8 @@ export default function ChatInterface() {
     const sendMessage = async () => {
         if (!input.trim() && attachments.length === 0) return;
 
-        const userMsg: Message = { 
-            role: 'user', 
+        const userMsg: Message = {
+            role: 'user',
             content: input,
             attachments: attachments.map(att => ({
                 type: att.type,
@@ -111,12 +110,12 @@ export default function ChatInterface() {
                 name: att.name
             }))
         };
-        
+
         const currentInput = input;
         setInput('');
         const currentAttachments = [...attachments];
         setAttachments([]);
-        
+
         // Build history from current messages (before adding user message)
         // Format: only role and content (backend expects Dict[str, str])
         // Ensure content is always a string and filter out any invalid messages
@@ -126,14 +125,14 @@ export default function ChatInterface() {
                 role: msg.role,
                 content: String(msg.content || '')
             }));
-        
+
         // Add user message to UI state
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-            
+
             // If there are attachments, use regular POST (multipart/form-data doesn't work with SSE)
             if (currentAttachments.length > 0) {
                 const formData = new FormData();
@@ -159,7 +158,7 @@ export default function ChatInterface() {
 
                 const aiMsg: Message = { role: 'assistant', content: response.data.response };
                 setMessages(prev => [...prev, aiMsg]);
-                
+
                 // Store quotation_id if provided (for quotation linking)
                 if (response.data.quotation_id) {
                     setQuotationId(response.data.quotation_id);
@@ -211,7 +210,7 @@ export default function ChatInterface() {
                             if (line.startsWith('data: ')) {
                                 try {
                                     const data = JSON.parse(line.slice(6));
-                                    
+
                                     if (data.type === 'content') {
                                         fullResponse += data.content;
                                         // Update the message in real-time using the ref index
@@ -311,7 +310,7 @@ export default function ChatInterface() {
                         ))}
                     </div>
                 )}
-                
+
                 <div className="flex gap-3 items-center">
                     <input
                         type="file"

@@ -17,10 +17,12 @@ logger = logging.getLogger(__name__)
 class ConversationalAgent:
     """Conversational agent that uses the Supervisor architecture"""
     
+    # Shared checkpointer for all instances to persist state across requests
+    _checkpointer = MemorySaver()
+    
     def __init__(self, memory_manager: MemoryManager):
         self.memory_manager = memory_manager
         self.supervisor = SupervisorAgent()
-        self.checkpointer = MemorySaver()
         self.graph = self._build_graph()
     
     def _build_graph(self) -> StateGraph:
@@ -58,7 +60,7 @@ class ConversationalAgent:
         builder.add_conditional_edges("supervisor", should_continue, {"tools": "tools", END: END})
         builder.add_edge("tools", "supervisor")
         
-        return builder.compile(checkpointer=self.checkpointer)
+        return builder.compile(checkpointer=self._checkpointer)
 
     async def process_message_stream(
         self,

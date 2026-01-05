@@ -18,9 +18,11 @@ class LLMClient:
             
             kwargs = {
                 "model": self.model,
-                "temperature": 0.3,
+                "temperature": 0.2,
                 "api_key": settings.RUNPOD_API_KEY,
                 "streaming": False,
+                "top_p": 0.7,
+                "frequency_penalty": 1.2,
                 "max_tokens": 8192,  # Prevent truncation
                 "extra_body": {"max_gen_len": 8192},
                 "default_headers": {
@@ -66,6 +68,19 @@ class LLMClient:
         
         response = await self.client.ainvoke(messages)
         return response.content
+
+    async def invoke_structured(self, prompt: str, schema: type, system_prompt: Optional[str] = None):
+        """Invoke the LLM and return structured output matching the schema (Pydantic model)"""
+        from langchain_core.messages import SystemMessage, HumanMessage
+        
+        structured_llm = self.client.with_structured_output(schema)
+        
+        messages = []
+        if system_prompt:
+            messages.append(SystemMessage(content=system_prompt))
+        messages.append(HumanMessage(content=prompt))
+        
+        return await structured_llm.ainvoke(messages)
     
     def invoke_sync(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Synchronous version of invoke"""
@@ -90,4 +105,3 @@ def get_llm_client() -> LLMClient:
     if _llm_client is None:
         _llm_client = LLMClient()
     return _llm_client
-

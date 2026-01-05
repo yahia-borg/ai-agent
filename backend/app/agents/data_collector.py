@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from app.agents.base_agent import BaseAgent
 from app.agents.llm_client import get_llm_client
 from app.models.quotation import Quotation, ProjectType
+from app.models.project_data import ProjectData
 from app.utils.language_detector import detect_language, get_multilingual_prompt
 
 
@@ -31,37 +32,36 @@ class DataCollectorAgent(BaseAgent):
         extraction_prompt = prompts["extraction"].format(
             description=quotation.project_description,
             location=quotation.location or 'Not specified' if detected_lang == "en" else 'غير محدد',
-            zip_code=quotation.zip_code or 'Not specified' if detected_lang == "en" else 'غير محدد',
             project_type=quotation.project_type or 'Not specified' if detected_lang == "en" else 'غير محدد',
             timeline=quotation.timeline or 'Not specified' if detected_lang == "en" else 'غير محدد'
         )
         
         try:
-            response = await self.llm.invoke(extraction_prompt, system_prompt)
-
-            # Extract JSON from response (handle markdown code blocks)
-            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group()
-                extracted_data = json.loads(json_str)
-            else:
-                # Fallback: try to parse entire response
-                extracted_data = json.loads(response)
+            # Use structured output to ensure valid JSON and schema adherence
+            extracted_data_model = await self.llm.invoke_structured(
+                prompt=extraction_prompt,
+                schema=ProjectData,
+                system_prompt=system_prompt
+            )
             
-            # Validate and normalize
+            # Convert Pydantic model to dictionary
+            extracted_data = extracted_data_model.dict()
+            
+            # Validate and normalize (stays for defense in depth)
             extracted_data = self._normalize_data(extracted_data, quotation)
             
             # Add detected language to extracted data
             extracted_data["detected_language"] = detected_lang
             
             # Determine if follow-up questions are needed
+            # We use the confidence score from the model
             needs_followup = extracted_data.get("confidence_score", 0.0) < 0.7
             
             return {
                 "extracted_data": extracted_data,
                 "confidence_score": extracted_data.get("confidence_score", 0.5),
                 "needs_followup": needs_followup,
-                "follow_up_questions": extracted_data.get("follow_up_questions", [])[:2],  # Max 2 questions
+                "follow_up_questions": (extracted_data.get("follow_up_questions") or [])[:2],
                 "detected_language": detected_lang
             }
             
@@ -131,17 +131,17 @@ class DataCollectorAgent(BaseAgent):
         # Determine project type from keywords (English and Arabic)
         project_type = None
         english_keywords = {
-            "commercial": ["office", "commercial", "retail", "warehouse"],
-            "residential": ["home", "house", "residential", "apartment"],
-            "renovation": ["renovation", "remodel", "renovate"],
-            "new_construction": ["new construction", "build", "construct"]
+            "commercial": ["office", "commercial", "retail", "warehouse", "shop", "cafe", "coffee", "restaurant", "store", "showroom"],
+            "residential": ["home", "house", "residential", "apartment", "villa", "unit"],
+            "renovation": ["renovation", "remodel", "renovate", "finish"],
+            "new_construction": ["new construction", "build", "construct", "foundation"]
         }
         
         arabic_keywords = {
-            "commercial": ["مكتب", "تجاري", "محل", "مستودع"],
-            "residential": ["منزل", "سكني", "شقة", "بيت"],
-            "renovation": ["تجديد", "ترميم", "إعادة"],
-            "new_construction": ["بناء جديد", "بناء", "إنشاء"]
+            "commercial": ["مكتب", "تجاري", "محل", "مستودع", "كافيه", "قهوة", "مطعم", "معرض", "متجر"],
+            "residential": ["منزل", "سكني", "شقة", "بيت", "فيلا", "وحدة"],
+            "renovation": ["تجديد", "ترميم", "إعادة", "تشطيب"],
+            "new_construction": ["بناء جديد", "بناء", "إنشاء", "تأسيس"]
         }
         
         keywords = english_keywords if detected_lang == "en" else (

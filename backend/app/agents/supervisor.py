@@ -44,7 +44,19 @@ class SupervisorAgent:
         
         db = SessionLocal()
         try:
+            # Try to resolve quotation_id from database
             q_data = db.query(QuotationData).filter(QuotationData.quotation_id == quotation_id).first()
+            
+            # If not found, check if quotation_id is actually a session_id
+            if not q_data and quotation_id.startswith("session-"):
+                from app.models.memory import AgentSession
+                session = db.query(AgentSession).filter(AgentSession.session_id == quotation_id).first()
+                if session and session.quotation_id:
+                    # Update local variable to the actual quotation_id for prompt accuracy
+                    real_quotation_id = session.quotation_id
+                    q_data = db.query(QuotationData).filter(QuotationData.quotation_id == real_quotation_id).first()
+                    quotation_id = real_quotation_id
+
             if q_data:
                 # Read finish levels from extracted_data JSON
                 extracted = q_data.extracted_data or {}
@@ -69,9 +81,9 @@ Your goal is to help users get accurate construction quotations.
 
 You have access to a team of tools:
 1. 'collect_project_data': EXTRACTS project info (Size, Type, and optional Location) from the chat. ALWAYS run this after the user provides project details.
-2. 'search_standards': Finds building codes and requirements (e.g., "mix ratio for plaster").
-3. 'search_materials': Finds material prices in EGP (e.g., "Ceramic Cleopatra 60x60").
-4. 'search_labor_rates': Finds worker wages in EGP (e.g., "Daily rate for Tiler").
+2. 'search_standards': Finds building codes and requirements.
+3. 'search_materials': Finds material prices in EGP.
+4. 'search_labor_rates': Finds worker wages in EGP.
 5. 'calculate_costs': Generates the FINAL cost breakdown. Run this when you have sufficient data (Size and Type are required, Location and Materials are optional but improve accuracy).
 6. 'export_quotation_pdf': Exports the quotation as a PDF file. Call this when the user asks for PDF export.
 7. 'export_quotation_excel': Exports the quotation as an Excel file. Call this when the user asks for Excel export.

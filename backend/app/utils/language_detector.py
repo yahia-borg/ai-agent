@@ -35,37 +35,37 @@ def get_multilingual_prompt(language: str) -> dict:
     """Get multilingual prompts based on detected language"""
     prompts = {
         "ar": {
-            "system": """أنت مساعد لاستخراج بيانات مشاريع البناء.
-استخرج المعلومات الرئيسية من أوصاف المشاريع وأعد بيانات JSON منظمة.
-ركز على: نوع المشروع، المساحة (بالمتر المربع أو القدم المربع)، الجدول الزمني، والمتطلبات الرئيسية.
-يمكنك فهم النصوص بالعربية والإنجليزية.
-الأسعار بالجنيه المصري (EGP).""",
-            "extraction": """استخرج المعلومات المنظمة من وصف مشروع البناء هذا:
-
-"{description}"
-
+            "system": """أنت مساعد ذكي مصري بيتكلم عامية مصرية صرف، متخصص في استخراج بيانات مشاريع البناء.
+هتستخرج المعلومات الرئيسية من أوصاف المشاريع وترجع بيانات JSON منظمة بس بالعامية المصرية في التعليقات أو الأسئلة المتابعة إذا لزم الأمر.
+ركز على: نوع المشروع، المساحة (بالمتر المربع أو القدم)، الجدول الزمني، والمتطلبات الرئيسية.
+بتفهم النصوص بالعامية المصرية أو الفصحى أو الإنجليزية.
+الأسعار بالجنيه المصري (EGP).
+**مهم جدًا**: كل رد منك لازم يكون بالعامية المصرية الفصيحة (مش فصحى، مش إنجليزي)، حتى لو الوصف بالإنجليزي. الـ JSON نفسه يفضل بالإنجليزي عشان الدقة، بس أي شرح أو أسئلة متابعة بالعامية.""",
+            "extraction": """استخرج المعلومات المنظمة من وصف مشروع البناء ده بالعامية المصرية:
+\"{description}\"
 الموقع: {location}
 نوع المشروع: {project_type}
 الجدول الزمني: {timeline}
 
-أعد كائن JSON بالهيكل التالي:
+رجع كائن JSON بالهيكل ده، والحقول النصية زي key_requirements و missing_information و follow_up_questions لازم تكون بالعامية المصرية صرف:
+
 {{
-    "project_type": "residential|commercial|new_construction|null",
+    "project_type": "تجاري|سكني|بناء_جديد|null",
     "size_sqm": <رقم أو null>,
-    "current_finish_level": "core_shell|semi_finished|finished|old_finish",
-    "target_finish_level": "semi_finished|fully_finished|luxury_finished",
+    "current_finish_level": "على_الطوب|نص_تشطيب|متشطب|تشطيب_قديم",
+    "target_finish_level": "نص_تشطيب|تشطيب_كامل|تشطيب_فاخر",
     "timeline_weeks": <رقم أو null>,
-    "key_requirements": ["المتطلب1", "المتطلب2", ...],
-    "confidence_score": <0.0 إلى 1.0>,
-    "missing_information": ["ما هو مفقود"],
-    "follow_up_questions": ["سؤال1", "سؤال2"],
-    "detected_language": "ar|en|mixed"
+    "key_requirements": ["...", "..."],
+    "confidence_score": <0.0 - 1.0>,
+    "missing_information": ["...", "..."],
+    "follow_up_questions": ["...", "..."],
+    "detected_language": "عربي|إنجليزي|مختلط"
 }}
 
-ملاحظة: استخرج المساحة بالمتر المربع (sqm).
-الموقع اختياري - إذا ذُكر، أضفه في key_requirements.
-الأسعار بالجنيه المصري (EGP).
-كن دقيقاً ومحافظاً في تقدير درجات الثقة. أضف أسئلة متابعة فقط إذا كانت الثقة < 0.7."""
+ملاحظة: المساحة بالمتر المربع (sqm).
+الموقع لو موجود حطه في key_requirements.
+كن دقيق في الثقة، وأضف أسئلة متابعة بس لو الثقة أقل من 0.7.
+**الرد كله بالعامية المصرية إلا الـ JSON keys والقيم اللي هي options ثابتة.**"""
         },
         "en": {
             "system": """You are a construction project data extraction assistant.
@@ -83,7 +83,7 @@ Timeline: {timeline}
 
 Return a JSON object with the following structure:
 {{
-    "project_type": "residential|commercial|new_construction|null",
+    "project_type": "commercial (office, shop, cafe, etc.)|residential (apartment, villa, etc.)|new_construction|null",
     "size_sqm": <number or null>,
     "current_finish_level": "core_shell|semi_finished|finished|old_finish",
     "target_finish_level": "semi_finished|fully_finished|luxury_finished",
@@ -116,7 +116,7 @@ Timeline: {timeline}
 
 Return a JSON object with the following structure:
 {{
-    "project_type": "residential|commercial|new_construction|null",
+    "project_type": "commercial (office, shop, cafe, etc.)|residential (apartment, villa, etc.)|new_construction|null",
     "size_sqm": <number or null>,
     "current_finish_level": "core_shell|semi_finished|finished|old_finish",
     "target_finish_level": "semi_finished|fully_finished|luxury_finished",

@@ -108,13 +108,23 @@ async def collect_project_data(quotation_id: str, additional_info: Optional[str]
         size = extracted_data.get("size_sqm") or extracted_data.get("size_sqft")
         unit = "sqm" if extracted_data.get("size_sqm") else "sqft"
 
-        p_type = extracted_data.get("project_type", "Unknown")
+        p_type = extracted_data.get("project_type")
         current_status = extracted_data.get("current_finish_level", "Not specified")
         target_status = extracted_data.get("target_finish_level", "Not specified")
         key_reqs = extracted_data.get("key_requirements", [])
-        missing = result.get("missing_information", [])
+        
+        # Correctly get missing info from extracted_data
+        missing = extracted_data.get("missing_information", [])
+        
+        # Mandatory field validation for the summary
+        if not size:
+            if "Size (sqm)" not in missing:
+                missing.append("Size (sqm)")
+        if not p_type or p_type == "Unknown":
+            if "Project Type" not in missing:
+                missing.append("Project Type")
 
-        summary = f"Data Extracted:\n- Type: {p_type}\n- Size: {size} {unit}\n"
+        summary = f"Data Extracted:\n- Type: {p_type or 'Unknown'}\n- Size: {size if size else 'None'} {unit}\n"
         summary += f"- Current Status: {current_status}\n- Target Status: {target_status}\n"
 
         # Show key requirements if any (includes location if mentioned)
@@ -127,7 +137,9 @@ async def collect_project_data(quotation_id: str, additional_info: Optional[str]
              summary += "- All core data appears present.\n"
              
         if result.get("needs_followup"):
-             summary += f"- Follow-up Needed: {', '.join(result.get('follow_up_questions', []))}"
+             followups = result.get('follow_up_questions', [])
+             if followups:
+                summary += f"- Follow-up Needed: {', '.join(followups)}"
              
         return summary
 
@@ -190,16 +202,24 @@ async def calculate_costs(quotation_id: str) -> str:
         currency = result.get("currency", "EGP")
         breakdown = result.get("cost_breakdown", {})
         
-        summary = f"Cost Calculation Complete:\n- Total Estimated Cost: {total:,.2f} {currency}\n"
+        summary = f"### 🏗️ Cost Calculation Complete\n**Total Estimated Cost: {total:,.2f} {currency}**\n\n"
         
+        summary += "#### 📦 Material & BOQ Breakdown:\n"
         if "materials" in breakdown:
-             mat_cost = breakdown["materials"].get("subtotal", 0)
-             summary += f"- Materials: {mat_cost:,.2f}\n"
+            for item in breakdown["materials"].get("items", []):
+                name = item.get("name")
+                cost = item.get("total", 0)
+                summary += f"- **{name}**: {cost:,.2f} {currency}\n"
+        
         if "labor" in breakdown:
-             labor_cost = breakdown["labor"].get("subtotal", 0)
-             summary += f"- Labor: {labor_cost:,.2f}\n"
+             summary += "\n#### 👷 Labor & Trades:\n"
+             for trade in breakdown["labor"].get("trades", []):
+                 name = trade.get("trade")
+                 cost = trade.get("total", 0)
+                 summary += f"- **{name}**: {cost:,.2f} {currency}\n"
              
-        summary += "\nFull detailed breakdown has been saved to the database."
+        summary += "\n> [!TIP]\n"
+        summary += "> Full detailed professional breakdown (6-column BOQ with technical specs) has been saved. You can now export this as PDF or Excel."
         return summary
 
     except Exception as e:

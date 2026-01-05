@@ -202,20 +202,48 @@ class CostCalculatorAgent(BaseAgent):
         material_items = []
         total_material_cost = 0
 
+        from app.utils.quotation_descriptions import get_category_description
+
         for material in materials:
-            # Estimate quantity based on project size
-            # Simple heuristic: assume materials cover the entire area
-            quantity = size_sqm
+            # Estimate quantity based on project size and material type
+            name = material.get("name", "").lower()
+            category = material.get("category", "General")
+            
+            # Default multiplier
+            multiplier = 1.0
+            
+            # Refine multipliers based on construction norms
+            if "wall" in name or "paint" in name or "plaster" in name or category.lower() in ["walls", "painting"]:
+                multiplier = 2.8
+            elif "ceiling" in name or category.lower() == "ceilings":
+                multiplier = 1.0
+            elif "floor" in name or "tile" in name or "ceramic" in name or "porcelain" in name or "marble" in name or category.lower() == "flooring":
+                multiplier = 1.1
+            elif "door" in name or "window" in name or category.lower() == "doors_windows":
+                multiplier = 0.05
+            
+            quantity = size_sqm * multiplier
             unit_price = material.get("price_per_unit", 0)
             item_cost = quantity * unit_price
+            unit = material.get("unit", "sqm")
+
+            # Generate dynamic professional description
+            description = get_category_description(
+                category=category,
+                item_name=material.get("name"),
+                quantity=quantity,
+                unit=unit,
+                conversation_context=quotation.project_description
+            )
 
             material_items.append({
                 "name": material.get("name"),
+                "description": description,
                 "quantity": round(quantity, 2),
-                "unit": material.get("unit", "sqm"),
+                "unit": unit,
                 "unit_price": round(unit_price, 2),
-                "cost": round(item_cost, 2),
-                "category": material.get("category", "General")
+                "total": round(item_cost, 2),
+                "category": category
             })
 
             total_material_cost += item_cost
@@ -225,8 +253,8 @@ class CostCalculatorAgent(BaseAgent):
         total_labor_cost = 0
 
         # Estimate total labor hours based on project size
-        # Simple heuristic: 10 hours per sqm on average
-        total_labor_hours = size_sqm * 10.0
+        # Simple heuristic: 3 hours per sqm on average
+        total_labor_hours = size_sqm * 3.0
 
         if labor_rates:
             # Distribute hours among available labor roles
@@ -238,11 +266,17 @@ class CostCalculatorAgent(BaseAgent):
                 role_hours = hours_per_role
                 role_cost = role_hours * hourly_rate
 
+                # Generate dynamic professional description for labor
+                description = f"بالمقطوعية اعمال {role} للموقع تشمل كل ما يلزم لنهو العمل كاملاً طبقاً للمواصفات الفنية وأصول الصناعة وتعليمات المهندس."
+
                 labor_trades.append({
+                    "name": f"Labor: {role}",
+                    "description": description,
                     "trade": role,
-                    "hours": round(role_hours, 1),
-                    "rate": round(hourly_rate, 2),
-                    "cost": round(role_cost, 2)
+                    "quantity": round(role_hours, 1),
+                    "unit": "hour",
+                    "unit_price": round(hourly_rate, 2),
+                    "total": round(role_cost, 2)
                 })
 
                 total_labor_cost += role_cost

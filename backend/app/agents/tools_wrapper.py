@@ -20,10 +20,15 @@ async def collect_project_data(quotation_id: str, additional_info: Optional[str]
     Args:
         quotation_id: The ID of the quotation to process.
         additional_info: Optional additional details provided by the user to update the project description.
+                        Keep this SHORT (max 200 characters). Only include new information from the user's latest message.
 
     Returns:
         A concise summary string of the extracted data and any missing information.
     """
+    # Truncate additional_info to prevent tool call truncation issues
+    if additional_info and len(additional_info) > 200:
+        logger.warning(f"Truncating additional_info from {len(additional_info)} to 200 characters")
+        additional_info = additional_info[:200]
     db = SessionLocal()
     try:
         # First, try to find existing quotation

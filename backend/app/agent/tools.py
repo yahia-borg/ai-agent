@@ -2,7 +2,7 @@ from app.models.quotation import Quotation, QuotationData
 from app.core.database import SessionLocal
 from app.models.resources import Material, LaborRate
 from app.models.knowledge import KnowledgeItem
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 import json
 import re
 import logging
@@ -12,6 +12,7 @@ from app.agent.export import generate_pdf_quotation, generate_excel_quotation
 from langchain_core.tools import tool
 from app.utils.tool_cache import get_cached_result, set_cached_result
 from app.utils.quotation_descriptions import get_category_description
+from app.utils.language_detector import detect_language
 import os
 
 logger = logging.getLogger(__name__)
@@ -156,247 +157,279 @@ def extract_role_keyword(query: str) -> str:
 @tool
 async def search_materials(query: str) -> str:
     """
-    Search for materials in the database using intelligent multi-strategy matching.
+    Search for materials in the database using intelligent multilingual matching.
     
-    This tool handles various query formats and database entry formats:
-    - Database entries: "Marble (Local)", "Porcelain Tiles", "Hardwood Flooring"
-    - User queries: "marble", "marble flooring", "wood floor tiles", "light beige marble"
+    Supports both English and Arabic queries. Automatically detects language if not provided.
+    Handles compound queries by splitting into individual words if full query fails.
     
-    Search strategies (tried in order):
-    1. Direct match: searches for exact query in name/category
-    2. Keyword extraction: splits query into keywords and searches each
-    3. Normalized search: removes parentheses and special characters
-    4. Category fallback: searches category field if name search fails
+    Examples:
+    - "cement" (English) → finds materials with English name containing "cement"
+    - "أسمنت" (Arabic) → finds materials with Arabic name containing "أسمنت"
+    - "جص جدران" → tries full query, then splits to "جص" and "جدران" if needed
+    - "marble" → searches in both languages for best results
     
-    Examples of good queries:
-    - "marble" → finds "Marble (Local)"
-    - "porcelain tiles" → finds "Porcelain Tiles"
-    - "hardwood" → finds "Hardwood Flooring"
-    - "cement" → finds cement-related materials
-    - "light beige marble" → extracts "marble" and finds "Marble (Local)"
-    
-    Returns JSON array of materials with: id, name, price, unit, currency, category.
+    Returns JSON array of materials with: id, name (bilingual), price, unit, currency, category.
     If no results, returns helpful message with suggestions.
     """
     # Check cache first
-    cached = get_cached_result("search_materials", query)
+    cache_key = query
+    cached = get_cached_result("search_materials", cache_key)
     if cached is not None:
         return cached
     
     db = SessionLocal()
     try:
-        # Normalize query
-        normalized_query = normalize_query(query)
-        keywords = extract_keywords(normalized_query)
+        # Detect language from query
+        detected = detect_language(query)
+        language = "ar" if detected == "ar" else "en"
         
-        results = []
-        search_strategies_tried = []
+        # Use PostgreSQL multilingual search function
+        result = db.execute(
+            text("""
+                SELECT * FROM search_materials_multilingual(
+                    :query,
+                    :language,
+                    NULL,  -- category_id (optional filter)
+                    10     -- limit
+                )
+            """),
+            {"query": query, "language": language}
+        )
         
-        # Strategy 1: Direct ILIKE match
-        search_strategies_tried.append("direct_match")
-        direct_results = db.query(Material).filter(
-            or_(
-                Material.name.ilike(f'%{normalized_query}%'),
-                Material.category.ilike(f'%{normalized_query}%')
-            )
-        ).limit(10).all()
-        results.extend(direct_results)
+        rows = result.fetchall()
         
-        # Strategy 2: Keyword matching (if no direct match or to get more results)
-        if keywords:
-            search_strategies_tried.append("keyword_extraction")
-            for keyword in keywords:
-                keyword_results = db.query(Material).filter(
-                    or_(
-                        Material.name.ilike(f'%{keyword}%'),
-                        Material.category.ilike(f'%{keyword}%')
-                    )
-                ).limit(10).all()
-                # Add only new results
-                for r in keyword_results:
-                    if r not in results:
-                        results.append(r)
+        # If no results, try splitting compound queries into individual words
+        if not rows and len(query.split()) > 1:
+            logger.info(f"search_materials query='{query}' - no results, trying individual words")
+            all_rows = []
+            seen_ids = set()
+            
+            # Try each word separately
+            words = query.split()
+            for word in words:
+                if len(word.strip()) < 2:  # Skip very short words
+                    continue
+                    
+                word_result = db.execute(
+                    text("""
+                        SELECT * FROM search_materials_multilingual(
+                            :query,
+                            :language,
+                            NULL,
+                            5
+                        )
+                    """),
+                    {"query": word.strip(), "language": language}
+                )
+                
+                word_rows = word_result.fetchall()
+                for row in word_rows:
+                    if row.id not in seen_ids:
+                        seen_ids.add(row.id)
+                        all_rows.append(row)
+            
+            rows = all_rows[:10]  # Limit to 10 total results
         
-        # Strategy 3: Normalized search (remove parentheses, special chars)
-        if not results:
-            search_strategies_tried.append("normalized_search")
-            clean_query = remove_special_chars(normalized_query)
-            if clean_query != normalized_query:
-                normalized_results = db.query(Material).filter(
-                    or_(
-                        Material.name.ilike(f'%{clean_query}%'),
-                        Material.category.ilike(f'%{clean_query}%')
-                    )
-                ).limit(10).all()
-                results.extend(normalized_results)
-        
-        # Remove duplicates while preserving order
-        seen_ids = set()
-        unique_results = []
-        for r in results:
-            if r.id not in seen_ids:
-                seen_ids.add(r.id)
-                unique_results.append(r)
-        
-        # Limit to 10 results
-        results = unique_results[:10]
-        
-        # Log search results
-        if results:
-            result_names = [m.name for m in results]
-            logger.info(f"search_materials query='{query}' found {len(results)} items: {result_names}")
-        else:
-            logger.info(f"search_materials query='{query}' - no results found")
-        
-        logger.debug(f"search_materials query='{query}' strategies={search_strategies_tried}")
-        
-        if not results:
-            # Provide helpful error message with suggestions
+        if not rows:
+            logger.warning(f"search_materials query='{query}' language='{language}' - no results found (tried full query and word splitting)")
+            # Try to provide helpful suggestions based on common materials
             suggestions = []
-            if keywords:
-                suggestions.append(f"Try searching for: {', '.join(keywords[:3])}")
-            result = json.dumps({
+            if language == "ar":
+                suggestions = ["أسمنت", "بلاط", "دهان", "جص", "رخام", "سيراميك"]
+            else:
+                suggestions = ["cement", "tile", "paint", "plaster", "marble", "ceramic"]
+            
+            result_json = json.dumps({
                 "error": "No materials found matching that query.",
-                "suggestions": suggestions,
-                "query_used": query
+                "suggestions": suggestions[:3],
+                "query_used": query,
+                "language": language
             }, ensure_ascii=False)
         else:
             materials_list = []
-            for m in results:
+            for row in rows:
+                # Get related data
+                material = db.query(Material).filter(Material.id == row.id).first()
+                if not material:
+                    continue
+                
+                # Get category name (bilingual)
+                category_name = None
+                if material.category:
+                    category_name = material.category.name
+                
+                # Get unit name (bilingual)
+                unit_name = None
+                if material.unit:
+                    unit_name = material.unit.name
+                
+                # Get currency symbol
+                currency_symbol = None
+                if material.currency:
+                    currency_symbol = material.currency.symbol
+                
                 materials_list.append({
-                    "id": m.id,
-                    "name": m.name,
-                    "price": m.price_per_unit,
-                    "unit": m.unit,
-                    "currency": m.currency,
-                    "category": m.category
+                    "id": row.id,
+                    "code": row.code,
+                    "name": {
+                        "en": row.name_en,
+                        "ar": row.name_ar
+                    },
+                    "name_display": row.name_ar if language == "ar" else row.name_en,  # Display name based on language
+                    "price": float(row.price),
+                    "unit": unit_name,
+                    "unit_id": row.unit_id,
+                    "currency": currency_symbol or "EGP",
+                    "currency_id": row.currency_id,
+                    "category": category_name,
+                    "category_id": row.category_id,
+                    "relevance": float(row.relevance)
                 })
             
-            result = json.dumps(materials_list, ensure_ascii=False)
+            logger.info(f"search_materials query='{query}' language='{language}' found {len(materials_list)} items")
+            result_json = json.dumps(materials_list, ensure_ascii=False)
         
         # Cache result
-        set_cached_result("search_materials", result, query)
-        return result
+        set_cached_result("search_materials", result_json, cache_key)
+        return result_json
 
     except Exception as e:
-        logger.error(f"Error searching materials: {str(e)}")
-        return f"Error searching materials: {str(e)}"
+        logger.error(f"Error searching materials: {str(e)}", exc_info=True)
+        return json.dumps({"error": f"Error searching materials: {str(e)}"})
     finally:
         db.close()
 
 @tool
 async def search_labor_rates(query: str) -> str:
     """
-    Search for labor rates by role name using intelligent role extraction.
+    Search for labor rates by role name using intelligent multilingual matching.
     
-    This tool handles various query formats and database entry formats:
-    - Database entries: "Skilled Worker (Mason)", "Unskilled Labor", "Foreman/Supervisor"
-    - User queries: "mason", "mason worker", "electrician", "carpenter"
+    Supports both English and Arabic queries. Automatically detects language if not provided.
+    Handles compound queries by splitting into individual words if full query fails.
     
-    Search strategies (tried in order):
-    1. Direct match: searches for exact query in role field
-    2. Role extraction: extracts role keyword from phrases (e.g., "mason worker" → "mason")
-    3. Parentheses extraction: matches role inside parentheses (e.g., "mason" → "Skilled Worker (Mason)")
-    4. Normalized search: handles special characters like "/" in "Foreman/Supervisor"
+    Examples:
+    - "mason" (English) → finds labor rates with English role containing "mason"
+    - "بناء" (Arabic) → finds labor rates with Arabic role containing "بناء"
+    - "فني بلاط" → tries full query, then splits to "فني" and "بلاط" if needed
+    - "electrician" → searches in both languages for best results
     
-    Examples of good queries:
-    - "mason" → finds "Skilled Worker (Mason)"
-    - "electrician" → finds "Skilled Worker (Electrician)"
-    - "unskilled" → finds "Unskilled Labor"
-    - "foreman" → finds "Foreman/Supervisor"
-    
-    Returns JSON array of labor rates with: role, hourly_rate, currency.
+    Returns JSON array of labor rates with: role (bilingual), hourly_rate, daily_rate, currency.
     If no results, returns helpful message with suggestions.
     """
     # Check cache first
-    cached = get_cached_result("search_labor_rates", query)
+    cache_key = query
+    cached = get_cached_result("search_labor_rates", cache_key)
     if cached is not None:
         return cached
     
     db = SessionLocal()
     try:
-        # Extract role keyword from query
-        role_keyword = extract_role_keyword(query)  # "mason" from "mason worker"
-        normalized_query = normalize_query(query)
+        # Detect language from query
+        detected = detect_language(query)
+        language = "ar" if detected == "ar" else "en"
         
-        results = []
-        search_strategies_tried = []
+        # Use PostgreSQL multilingual search function
+        result = db.execute(
+            text("""
+                SELECT * FROM search_labor_rates_multilingual(
+                    :query,
+                    :language,
+                    NULL,  -- category_id (optional filter)
+                    10     -- limit
+                )
+            """),
+            {"query": query, "language": language}
+        )
         
-        # Strategy 1: Direct match
-        search_strategies_tried.append("direct_match")
-        direct_results = db.query(LaborRate).filter(
-            LaborRate.role.ilike(f'%{normalized_query}%')
-        ).limit(5).all()
-        results.extend(direct_results)
+        rows = result.fetchall()
         
-        # Strategy 2: Role keyword match (extract from parentheses)
-        if role_keyword and role_keyword != normalized_query:
-            search_strategies_tried.append("role_extraction")
-            role_results = db.query(LaborRate).filter(
-                LaborRate.role.ilike(f'%{role_keyword}%')
-            ).limit(5).all()
-            # Add only new results
-            for r in role_results:
-                if r not in results:
-                    results.append(r)
-        
-        # Strategy 3: Normalized search (handle "/" and special chars)
-        if not results:
-            search_strategies_tried.append("normalized_search")
-            clean_query = remove_special_chars(normalized_query)
-            if clean_query != normalized_query:
-                normalized_results = db.query(LaborRate).filter(
-                    LaborRate.role.ilike(f'%{clean_query}%')
-                ).limit(5).all()
-                results.extend(normalized_results)
-        
-        # Remove duplicates while preserving order
-        seen_ids = set()
-        unique_results = []
-        for r in results:
-            if r.id not in seen_ids:
-                seen_ids.add(r.id)
-                unique_results.append(r)
-        
-        # Limit to 5 results
-        results = unique_results[:5]
-        
-        # Log search results
-        if results:
-            result_roles = [l.role for l in results]
-            logger.info(f"search_labor_rates query='{query}' found {len(results)} roles: {result_roles}")
-        else:
-            logger.info(f"search_labor_rates query='{query}' - no results found")
+        # If no results, try splitting compound queries into individual words
+        if not rows and len(query.split()) > 1:
+            logger.info(f"search_labor_rates query='{query}' - no results, trying individual words")
+            all_rows = []
+            seen_ids = set()
             
-        logger.debug(f"search_labor_rates query='{query}' role_keyword='{role_keyword}' strategies={search_strategies_tried}")
+            # Try each word separately
+            words = query.split()
+            for word in words:
+                if len(word.strip()) < 2:  # Skip very short words
+                    continue
+                    
+                word_result = db.execute(
+                    text("""
+                        SELECT * FROM search_labor_rates_multilingual(
+                            :query,
+                            :language,
+                            NULL,
+                            5
+                        )
+                    """),
+                    {"query": word.strip(), "language": language}
+                )
+                
+                word_rows = word_result.fetchall()
+                for row in word_rows:
+                    if row.id not in seen_ids:
+                        seen_ids.add(row.id)
+                        all_rows.append(row)
+            
+            rows = all_rows[:10]  # Limit to 10 total results
         
-        if not results:
-            # Provide helpful suggestions
+        if not rows:
+            logger.warning(f"search_labor_rates query='{query}' language='{language}' - no results found (tried full query and word splitting)")
+            # Try to provide helpful suggestions based on common labor roles
             suggestions = []
-            if role_keyword:
-                suggestions.append(f"Try searching for: {role_keyword}")
-            result = json.dumps({
+            if language == "ar":
+                suggestions = ["بناء", "نجار", "كهربائي", "سباك", "دهان", "بلاط"]
+            else:
+                suggestions = ["mason", "carpenter", "electrician", "plumber", "painter", "tiler"]
+            
+            result_json = json.dumps({
                 "error": "No labor rates found.",
-                "suggestions": suggestions,
-                "query_used": query
+                "suggestions": suggestions[:3],
+                "query_used": query,
+                "language": language
             }, ensure_ascii=False)
         else:
             labor_list = []
-            for l in results:
+            for row in rows:
+                # Get related data
+                labor = db.query(LaborRate).filter(LaborRate.id == row.id).first()
+                if not labor:
+                    continue
+                
+                # Get currency symbol
+                currency_symbol = None
+                if labor.currency:
+                    currency_symbol = labor.currency.symbol
+                
                 labor_list.append({
-                    "role": l.role,
-                    "hourly_rate": l.hourly_rate,
-                    "currency": l.currency
+                    "id": row.id,
+                    "code": row.code,
+                    "role": {
+                        "en": row.role_en,
+                        "ar": row.role_ar
+                    },
+                    "role_display": row.role_ar if language == "ar" else row.role_en,  # Display name based on language
+                    "hourly_rate": float(row.hourly_rate) if row.hourly_rate else None,
+                    "daily_rate": float(row.daily_rate) if row.daily_rate else None,
+                    "currency": currency_symbol or "EGP",
+                    "currency_id": row.currency_id,
+                    "skill_level": row.skill_level,
+                    "category_id": row.category_id,
+                    "relevance": float(row.relevance)
                 })
             
-            result = json.dumps(labor_list, ensure_ascii=False)
+            logger.info(f"search_labor_rates query='{query}' language='{language}' found {len(labor_list)} roles")
+            result_json = json.dumps(labor_list, ensure_ascii=False)
         
         # Cache result
-        set_cached_result("search_labor_rates", result, query)
-        return result
+        set_cached_result("search_labor_rates", result_json, cache_key)
+        return result_json
+
     except Exception as e:
-        logger.error(f"Error searching labor rates: {str(e)}")
-        return f"Error searching labor rates: {str(e)}"
+        logger.error(f"Error searching labor rates: {str(e)}", exc_info=True)
+        return json.dumps({"error": f"Error searching labor rates: {str(e)}"})
     finally:
         db.close()
 

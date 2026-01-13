@@ -12,3 +12,7 @@ class ProjectData(BaseModel):
     missing_information: List[str] = Field(default_factory=list, max_items=10)
     follow_up_questions: List[str] = Field(default_factory=list, max_items=3)
     confidence_score: float = Field(..., ge=0, le=1)
+
+class ConstructionRequirements(BaseModel):
+    materials: List[str] = Field(..., description="List of material names to search for (e.g., 'Ceramic tiles', 'Cement')")
+    labor: List[str] = Field(..., description="List of labor roles to search for (e.g., 'Mason', 'Electrician')")

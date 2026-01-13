@@ -215,7 +215,7 @@ def get_flooring_description(item_name: str, quantity: float, unit: str, item_de
     """Generate comprehensive flooring description matching real-world BOQ quality"""
     item_lower = item_name.lower()
     
-    # Determine tile type from item name
+    # Determine tile type from item name (more specific matching)
     tile_type = "بورسلين"
     tile_size = "60 سم * 60 سم"
     if 'ceramic' in item_lower or 'سيراميك' in item_name:
@@ -224,8 +224,14 @@ def get_flooring_description(item_name: str, quantity: float, unit: str, item_de
     elif 'marble' in item_lower or 'رخام' in item_name:
         tile_type = "رخام"
         tile_size = "كما هو متعارف عليه"
-    elif 'parquet' in item_lower or 'باركيه' in item_name:
-        tile_type = "باركيه"
+    elif 'parquet' in item_lower or 'باركيه' in item_name or 'hardwood' in item_lower or 'wpc' in item_lower:
+        # Distinguish between hardwood and WPC
+        if 'wpc' in item_lower:
+            tile_type = "WPC (خشب بلاستيك)"
+        elif 'hardwood' in item_lower or 'wood' in item_lower:
+            tile_type = "خشب طبيعي"
+        else:
+            tile_type = "باركيه"
         tile_size = "كما هو متعارف عليه"
     
     # Extract size from item_details if available (prioritize item_details)

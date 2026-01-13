@@ -4,6 +4,10 @@ from app.models.quotation import Quotation
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.resources import Material, LaborRate
+from app.agents.llm_client import get_llm_client
+from app.models.project_data import ConstructionRequirements
+from app.utils.language_detector import detect_language
+from sqlalchemy import text
 import json
 import logging
 
@@ -22,6 +26,7 @@ class CostCalculatorAgent(BaseAgent):
         super().__init__("cost_calculator")
         self.currency = settings.DEFAULT_CURRENCY  # EGP
         self.currency_symbol = "EGP"
+        self.llm = get_llm_client()
     
     def get_required_context(self) -> list[str]:
         return ["extracted_data"]
@@ -33,136 +38,331 @@ class CostCalculatorAgent(BaseAgent):
         elif unit.lower() in ["sqft", "sf", "foot", "قدم"]:
             return size * 0.092903  # Convert sqft to sqm
         return size * 0.092903  # Default assume sqft
+    
+    def _extract_keywords_from_list(self, items: List[str]) -> List[str]:
+        """
+        Extract simple keywords from verbose LLM responses.
+        Aggressively strips modifiers, markdown, and extracts core material/role names.
+        """
+        import re
+        keywords = []
+        
+        # Common modifiers to strip (both English and Arabic)
+        material_modifiers = [
+            'luxury', 'high-end', 'high end', 'premium', 'standard', 'basic',
+            'commercial', 'residential', 'industrial', 'fireproof', 'fire proof',
+            'smart', 'automatic', 'manual', 'semi', 'full', 'partial',
+            'مميز', 'فاخر', 'عادي', 'تجاري', 'سكني'
+        ]
+        
+        role_modifiers = [
+            'luxury', 'high-end', 'premium', 'skilled', 'certified', 'licensed',
+            'senior', 'junior', 'chief', 'head', 'assistant', 'apprentice',
+            'فني', 'ماهر', 'مرخص', 'رئيسي'
+        ]
+        
+        for item in items:
+            if not item or not isinstance(item, str):
+                continue
+            
+            # Remove markdown formatting
+            text = re.sub(r'\*\*|__|\*|_|`|#', '', item)
+            text = re.sub(r'^\d+\.\s*', '', text)
+            text = re.sub(r'^[-•]\s*', '', text)
+            text = re.sub(r'\([^)]*\)', '', text)  # Remove parentheses content (e.g., "(plasterer)")
+            text = re.sub(r'\[.*?\]', '', text)
+            text = re.sub(r'\{.*?\}', '', text)
+            text = re.sub(r'/.*', '', text)  # Remove everything after slash (e.g., "marble/granite" → "marble")
+            
+            # Split by common separators
+            parts = re.split(r'[:;,\n\-–—]', text)
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+                
+                # Extract words (handle both English and Arabic)
+                words = re.findall(r'[\u0600-\u06FF]+|[a-zA-Z]+', part)
+                if not words:
+                    continue
+                
+                # Remove modifiers
+                filtered_words = []
+                for word in words:
+                    word_lower = word.lower()
+                    if word_lower not in material_modifiers and word_lower not in role_modifiers:
+                        filtered_words.append(word)
+                
+                if filtered_words:
+                    # Take first 1-2 words (not 3) to keep keywords short
+                    keyword = ' '.join(filtered_words[:2]).strip()
+                    if len(keyword) > 2 and keyword not in keywords:
+                        keywords.append(keyword)
+                        if len(keywords) >= 25:  # Increased limit for better coverage
+                            break
+        
+        # Deduplicate and return
+        seen = set()
+        unique_keywords = []
+        for kw in keywords:
+            kw_lower = kw.lower()
+            if kw_lower not in seen:
+                seen.add(kw_lower)
+                unique_keywords.append(kw)
+        
+        return unique_keywords[:25]
 
     async def _query_qdrant_for_requirements(self, extracted_data: Dict[str, Any]) -> Dict[str, List[str]]:
         """
-        Query Qdrant knowledge base to determine what materials and labor are needed.
-
-        Based on:
-        - Current finishing level (bare_concrete, plastered, semi_finished, painted)
-        - Target finishing level
-        - Project type
-
-        Returns dict with 'materials' and 'labor' lists
+        Query Qdrant knowledge base and use LLM to determine specific requirements.
         """
         try:
             from app.services.qdrant_service import get_qdrant_service
 
             current_finish = extracted_data.get("current_finish_level", "plastered")
-            target_finish = extracted_data.get("target_finish_level", "standard")
+            target_finish = extracted_data.get("target_finish_level", "fully_finished")
             project_type = extracted_data.get("project_type", "residential")
 
-            # Build query for Qdrant
-            query = f"What materials and labor are needed for {project_type} project "
-            query += f"from {current_finish} to {target_finish} finishing level?"
+            # Phase 1: Knowledge Retrieval
+            query = f"Detailed technical standards, phases, and specific material/labor lists for {project_type} "
+            query += f"transition from {current_finish} to {target_finish}."
 
-            logger.info(f"Querying Qdrant: {query}")
+            logger.info(f"Retrieving standards for: {current_finish} -> {target_finish}")
 
             qdrant = get_qdrant_service()
             results = qdrant.search_knowledge(query, top_k=5)
+            
+            knowledge_context = "\n\n".join([
+                f"Topic: {r.get('topic')}\nContent: {r.get('content')}" 
+                for r in results
+            ])
 
-            # Extract material and labor mentions from Qdrant results
-            materials_mentioned = set()
-            labor_mentioned = set()
+            # Phase 2: LLM Interpretation
+            system_prompt = """You are a technical construction expert for the Egyptian market.
+Based on the provided snippets from our knowledge base (Egyptian codes and standards), 
+extract a structured list of specific materials and labor roles required for the given project transition.
 
-            for result in results:
-                content = result.get("content", "").lower()
+CRITICAL: Return ONLY simple keywords/phrases (1-3 words each), NOT full descriptions or markdown formatting.
+Examples of GOOD responses:
+- Materials: ["cement", "steel bars", "gypsum board", "ceramic tiles", "paint"]
+- Labor: ["mason", "electrician", "plumber", "tiler", "painter"]
 
-                # Extract material keywords
-                material_keywords = ["cement", "sand", "tile", "ceramic", "porcelain", "marble",
-                                   "paint", "plaster", "gypsum", "wood", "parquet", "granite",
-                                   "pipes", "wiring", "electrical", "plumbing", "doors", "windows"]
+Examples of BAD responses (DO NOT DO THIS):
+- Materials: ["1. **Structural & Reinforcement Materials** (Compliance: ECP 203-2020): - B500DWR steel reinforcement bars"]
+- Labor: ["**A. Technical Oversight Roles:** - Contract Supervising Engineer: Licensed from Engineers' Syndicate"]
 
-                for keyword in material_keywords:
-                    if keyword in content:
-                        materials_mentioned.add(keyword)
+Focus on what's needed to go from the CURRENT state to the TARGET state."""
 
-                # Extract labor keywords
-                labor_keywords = ["mason", "electrician", "plumber", "carpenter", "painter",
-                                "tiler", "plasterer", "foreman", "supervisor"]
+            prompt = f"""
+PROJECT CONTEXT:
+- Type: {project_type}
+- Transition: {current_finish} TO {target_finish}
 
-                for keyword in labor_keywords:
-                    if keyword in content:
-                        labor_mentioned.add(keyword)
+KNOWLEDGE BASE SNIPPETS:
+\"\"\"
+{knowledge_context}
+\"\"\"
 
-            logger.info(f"Qdrant suggested materials: {materials_mentioned}")
-            logger.info(f"Qdrant suggested labor: {labor_mentioned}")
+Extract ONLY simple keywords for materials and labor roles needed for THIS SPECIFIC transition.
+Return each item as a short keyword (1-3 words), NOT full descriptions or markdown.
+"""
+
+            requirements = await self.llm.invoke_structured(
+                prompt=prompt,
+                schema=ConstructionRequirements,
+                system_prompt=system_prompt
+            )
+
+            logger.info(f"LLM extracted requirements: {requirements.dict()}")
+
+            # Extract keywords from verbose responses
+            materials = self._extract_keywords_from_list(requirements.materials)
+            labor = self._extract_keywords_from_list(requirements.labor)
+            
+            # Log extracted keywords for debugging
+            logger.info(f"Extracted material keywords: {materials}")
+            logger.info(f"Extracted labor keywords: {labor}")
 
             return {
-                "materials": list(materials_mentioned) if materials_mentioned else ["cement", "tile", "paint"],
-                "labor": list(labor_mentioned) if labor_mentioned else ["mason", "painter"]
+                "materials": materials,
+                "labor": labor
             }
 
         except Exception as e:
-            logger.warning(f"Error querying Qdrant: {e}. Using fallback.")
-            # Fallback: basic materials and labor
+            logger.warning(f"Error in intelligent requirement extraction: {e}. Using basic fallback.")
             return {
-                "materials": ["cement", "tile", "paint", "plaster"],
-                "labor": ["mason", "electrician", "plumber", "painter"]
+                "materials": ["cement", "sand", "tile", "paint", "plaster", "wiring", "pipes"],
+                "labor": ["mason", "electrician", "plumber", "painter", "tiler"]
             }
     
-    async def _fetch_materials_from_db(self, material_queries: List[str]) -> List[Dict[str, Any]]:
+    async def _fetch_materials_from_db(self, material_queries: List[str], language: str = "en") -> List[Dict[str, Any]]:
         """
         Fetch materials from database based on queries from Qdrant.
+        Uses PostgreSQL multilingual search function.
+
+        Args:
+            material_queries: List of material search queries
+            language: Language preference ('en' or 'ar')
 
         Returns list of materials with pricing.
         """
         db = SessionLocal()
         try:
             materials = []
+            seen_ids = set()
 
             for query in material_queries:
-                # Query database for matching materials
-                db_materials = db.query(Material).filter(
-                    Material.name.ilike(f'%{query}%')
-                ).limit(5).all()
-
-                for m in db_materials:
+                # Use PostgreSQL multilingual search function
+                # Increased limit from 5 to 10 to find more materials
+                result = db.execute(
+                    text("""
+                        SELECT * FROM search_materials_multilingual(
+                            :query,
+                            :language,
+                            NULL,  -- category_id (optional filter)
+                            10     -- limit (increased to find more materials)
+                        )
+                    """),
+                    {"query": query, "language": language}
+                )
+                
+                rows = result.fetchall()
+                
+                for row in rows:
+                    # Skip duplicates
+                    if row.id in seen_ids:
+                        continue
+                    seen_ids.add(row.id)
+                    
+                    # Get related data
+                    material = db.query(Material).filter(Material.id == row.id).first()
+                    if not material:
+                        continue
+                    
+                    # Get category name (bilingual) - extract display name
+                    category_name = None
+                    category_display = None
+                    if material.category:
+                        category_name = material.category.name
+                        if isinstance(category_name, dict):
+                            category_display = category_name.get(language, category_name.get("en", ""))
+                        else:
+                            category_display = category_name
+                    
+                    # Get unit name (bilingual) - extract display name
+                    unit_name = None
+                    unit_display = None
+                    if material.unit:
+                        unit_name = material.unit.name
+                        if isinstance(unit_name, dict):
+                            unit_display = unit_name.get(language, unit_name.get("en", ""))
+                        else:
+                            unit_display = unit_name
+                    
+                    # Get currency symbol
+                    currency_symbol = None
+                    if material.currency:
+                        currency_symbol = material.currency.symbol
+                    
+                    # Extract display name from JSONB
+                    name_display = row.name_ar if language == "ar" else row.name_en
+                    
                     materials.append({
-                        "name": m.name,
-                        "price_per_unit": m.price_per_unit,
-                        "unit": m.unit,
-                        "currency": m.currency,
-                        "category": m.category
+                        "name": name_display,  # Display name for compatibility
+                        "name_bilingual": {
+                            "en": row.name_en,
+                            "ar": row.name_ar
+                        },
+                        "price": float(row.price),  # New schema uses 'price' not 'price_per_unit'
+                        "price_per_unit": float(row.price),  # Keep for backward compatibility
+                        "unit": unit_display,
+                        "unit_id": row.unit_id,
+                        "currency": currency_symbol or "EGP",
+                        "currency_id": row.currency_id,
+                        "category": category_display,
+                        "category_id": row.category_id
                     })
 
             logger.info(f"Fetched {len(materials)} materials from database")
             return materials
 
         except Exception as e:
-            logger.error(f"Error fetching materials from DB: {e}")
+            logger.error(f"Error fetching materials from DB: {e}", exc_info=True)
             return []
         finally:
             db.close()
     
-    async def _fetch_labor_rates_from_db(self, labor_queries: List[str]) -> List[Dict[str, Any]]:
+    async def _fetch_labor_rates_from_db(self, labor_queries: List[str], language: str = "en") -> List[Dict[str, Any]]:
         """
         Fetch labor rates from database based on queries from Qdrant.
+        Uses PostgreSQL multilingual search function.
+
+        Args:
+            labor_queries: List of labor role search queries
+            language: Language preference ('en' or 'ar')
 
         Returns list of labor rates.
         """
         db = SessionLocal()
         try:
             labor_rates = []
+            seen_ids = set()
 
             for query in labor_queries:
-                # Query database for matching labor roles
-                db_labor = db.query(LaborRate).filter(
-                    LaborRate.role.ilike(f'%{query}%')
-                ).limit(3).all()
-
-                for l in db_labor:
+                # Use PostgreSQL multilingual search function
+                # Increased limit from 3 to 5 to find more labor roles
+                result = db.execute(
+                    text("""
+                        SELECT * FROM search_labor_rates_multilingual(
+                            :query,
+                            :language,
+                            NULL,  -- category_id (optional filter)
+                            5      -- limit (increased to find more labor roles)
+                        )
+                    """),
+                    {"query": query, "language": language}
+                )
+                
+                rows = result.fetchall()
+                
+                for row in rows:
+                    # Skip duplicates
+                    if row.id in seen_ids:
+                        continue
+                    seen_ids.add(row.id)
+                    
+                    # Get related data
+                    labor = db.query(LaborRate).filter(LaborRate.id == row.id).first()
+                    if not labor:
+                        continue
+                    
+                    # Get currency symbol
+                    currency_symbol = None
+                    if labor.currency:
+                        currency_symbol = labor.currency.symbol
+                    
+                    # Extract display name from JSONB
+                    role_display = row.role_ar if language == "ar" else row.role_en
+                    
                     labor_rates.append({
-                        "role": l.role,
-                        "hourly_rate": l.hourly_rate,
-                        "currency": l.currency
+                        "role": role_display,  # Display name for compatibility
+                        "role_bilingual": {
+                            "en": row.role_en,
+                            "ar": row.role_ar
+                        },
+                        "hourly_rate": float(row.hourly_rate) if row.hourly_rate else None,
+                        "daily_rate": float(row.daily_rate) if row.daily_rate else None,
+                        "currency": currency_symbol or "EGP",
+                        "currency_id": row.currency_id,
+                        "skill_level": row.skill_level,
+                        "category_id": row.category_id
                     })
 
             logger.info(f"Fetched {len(labor_rates)} labor rates from database")
             return labor_rates
 
         except Exception as e:
-            logger.error(f"Error fetching labor rates from DB: {e}")
+            logger.error(f"Error fetching labor rates from DB: {e}", exc_info=True)
             return []
         finally:
             db.close()
@@ -179,6 +379,10 @@ class CostCalculatorAgent(BaseAgent):
 
         extracted_data = context.get("extracted_data", {})
 
+        # Detect language from quotation description
+        detected = detect_language(quotation.project_description or "")
+        language = "ar" if detected == "ar" else "en"
+
         # Get size - support both sqft and sqm
         size_sqft = extracted_data.get("size_sqft") or extracted_data.get("size_sqm")
         size_unit = "sqm" if extracted_data.get("size_sqm") else "sqft"
@@ -187,16 +391,16 @@ class CostCalculatorAgent(BaseAgent):
         size_sqm = self._convert_to_sqm(size_sqft, size_unit)
         project_type = extracted_data.get("project_type", "residential")
 
-        logger.info(f"Calculating costs for {size_sqm} sqm {project_type} project")
+        logger.info(f"Calculating costs for {size_sqm} sqm {project_type} project (language: {language})")
 
         # Step 1: Query Qdrant to understand requirements
         requirements = await self._query_qdrant_for_requirements(extracted_data)
         material_queries = requirements.get("materials", [])
         labor_queries = requirements.get("labor", [])
 
-        # Step 2: Fetch pricing from database
-        materials = await self._fetch_materials_from_db(material_queries)
-        labor_rates = await self._fetch_labor_rates_from_db(labor_queries)
+        # Step 2: Fetch pricing from database (with language preference)
+        materials = await self._fetch_materials_from_db(material_queries, language=language)
+        labor_rates = await self._fetch_labor_rates_from_db(labor_queries, language=language)
 
         # Step 3: Calculate material costs
         material_items = []
@@ -206,38 +410,59 @@ class CostCalculatorAgent(BaseAgent):
 
         for material in materials:
             # Estimate quantity based on project size and material type
-            name = material.get("name", "").lower()
-            category = material.get("category", "General")
+            # Handle both old format (string) and new format (bilingual dict)
+            name = material.get("name")
+            if name is None:
+                name = ""
+            elif isinstance(name, dict):
+                name = name.get(language, name.get("en", "")) or ""
+            elif not isinstance(name, str):
+                name = str(name) if name else ""
+            
+            name_lower = name.lower() if name else ""
+            
+            category = material.get("category")
+            if category is None:
+                category = "General"
+            elif isinstance(category, dict):
+                category = category.get(language, category.get("en", "General")) or "General"
+            elif not isinstance(category, str):
+                category = str(category) if category else "General"
+            
+            category_lower = category.lower() if category else "general"
             
             # Default multiplier
             multiplier = 1.0
             
             # Refine multipliers based on construction norms
-            if "wall" in name or "paint" in name or "plaster" in name or category.lower() in ["walls", "painting"]:
+            if "wall" in name_lower or "paint" in name_lower or "plaster" in name_lower or category_lower in ["walls", "painting"]:
                 multiplier = 2.8
-            elif "ceiling" in name or category.lower() == "ceilings":
+            elif "ceiling" in name_lower or category_lower == "ceilings":
                 multiplier = 1.0
-            elif "floor" in name or "tile" in name or "ceramic" in name or "porcelain" in name or "marble" in name or category.lower() == "flooring":
+            elif "floor" in name_lower or "tile" in name_lower or "ceramic" in name_lower or "porcelain" in name_lower or "marble" in name_lower or category_lower == "flooring":
                 multiplier = 1.1
-            elif "door" in name or "window" in name or category.lower() == "doors_windows":
+            elif "door" in name_lower or "window" in name_lower or category_lower == "doors_windows":
                 multiplier = 0.05
             
             quantity = size_sqm * multiplier
-            unit_price = material.get("price_per_unit", 0)
+            # Use 'price' field (new schema), fallback to 'price_per_unit' for backward compatibility
+            unit_price = material.get("price") or material.get("price_per_unit", 0)
             item_cost = quantity * unit_price
             unit = material.get("unit", "sqm")
+            if isinstance(unit, dict):
+                unit = unit.get(language, unit.get("en", "sqm"))
 
             # Generate dynamic professional description
             description = get_category_description(
                 category=category,
-                item_name=material.get("name"),
+                item_name=name,
                 quantity=quantity,
                 unit=unit,
                 conversation_context=quotation.project_description
             )
 
             material_items.append({
-                "name": material.get("name"),
+                "name": name,
                 "description": description,
                 "quantity": round(quantity, 2),
                 "unit": unit,
@@ -261,13 +486,22 @@ class CostCalculatorAgent(BaseAgent):
             hours_per_role = total_labor_hours / len(labor_rates)
 
             for labor in labor_rates:
+                # Handle both old format (string) and new format (bilingual dict)
                 role = labor.get("role")
+                if isinstance(role, dict):
+                    role = role.get(language, role.get("en", ""))
+                
                 hourly_rate = labor.get("hourly_rate", 0)
+                if hourly_rate is None:
+                    hourly_rate = 0
                 role_hours = hours_per_role
                 role_cost = role_hours * hourly_rate
 
                 # Generate dynamic professional description for labor
-                description = f"بالمقطوعية اعمال {role} للموقع تشمل كل ما يلزم لنهو العمل كاملاً طبقاً للمواصفات الفنية وأصول الصناعة وتعليمات المهندس."
+                if language == "ar":
+                    description = f"بالمقطوعية اعمال {role} للموقع تشمل كل ما يلزم لنهو العمل كاملاً طبقاً للمواصفات الفنية وأصول الصناعة وتعليمات المهندس."
+                else:
+                    description = f"Lump sum work for {role} at the site, including everything necessary to complete the work fully according to technical specifications, industry standards, and engineer's instructions."
 
                 labor_trades.append({
                     "name": f"Labor: {role}",

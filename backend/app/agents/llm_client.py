@@ -24,7 +24,6 @@ class LLMClient:
                 "top_p": 0.7,
                 "frequency_penalty": 1.2,
                 "max_tokens": 8192,  # Prevent truncation
-                # "extra_body": {"max_gen_len": 8192},
                 "default_headers": {
                     "Authorization": f"Bearer {settings.RUNPOD_API_KEY}"
                 }

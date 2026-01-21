@@ -1,9 +1,17 @@
 from typing import List, Dict, Any, Optional
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from app.agents.llm_client import get_llm_client
-from app.agents.tools_wrapper import collect_project_data, calculate_costs
+from app.agents.tools_wrapper import (
+    collect_project_data,
+    calculate_costs,
+    resolve_quotation,
+    extract_project_requirements,
+    save_project_data
+)
 from app.agent.tools import search_materials, search_labor_rates, search_standards, export_quotation_pdf, export_quotation_excel
 from app.agents.state import QuotationAgentState
+from app.core.structured_logging import log_phase_transition, log_state_update
+from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,11 +19,19 @@ logger = logging.getLogger(__name__)
 
 # List of tools available to the Supervisor
 SUPERVISOR_TOOLS = [
+    # Convenience wrapper (backward compatible)
     collect_project_data,
+    # Focused tools (use for better control)
+    resolve_quotation,
+    extract_project_requirements,
+    save_project_data,
+    # Cost calculation
     calculate_costs,
+    # Search tools
     search_materials,
     search_labor_rates,
     search_standards,
+    # Export tools
     export_quotation_pdf,
     export_quotation_excel
 ]
@@ -34,36 +50,61 @@ class SupervisorAgent:
         self.llm_with_tools = self.llm_client.client.bind_tools(SUPERVISOR_TOOLS)
         
     
+    def _build_state_checklist(self, q_data: Optional[QuotationData]) -> str:
+        """Build dynamic state checklist for prompt."""
+        if not q_data or not q_data.extracted_data:
+            return "❌ Size: Missing | ❌ Type: Missing | ❌ Finish Levels: Missing"
+        
+        extracted = q_data.extracted_data or {}
+        size = extracted.get("size_sqm")
+        p_type = extracted.get("project_type")
+        current = extracted.get("current_finish_level", "?")
+        target = extracted.get("target_finish_level", "?")
+        
+        checklist = []
+        checklist.append("✅" if size else "❌")
+        checklist.append(f"Size: {size} sqm" if size else "Size: Missing")
+        checklist.append("✅" if p_type and p_type != "Unknown" else "❌")
+        checklist.append(f"Type: {p_type}" if p_type and p_type != "Unknown" else "Type: Missing")
+        checklist.append("✅" if current and current != "?" and target and target != "?" else "❌")
+        checklist.append(f"Finish: {current}→{target}" if current and current != "?" and target and target != "?" else "Finish: Missing")
+        
+        if q_data.total_cost:
+            checklist.append("✅ Cost: Calculated")
+        elif q_data.cost_breakdown:
+            checklist.append("⏳ Cost: In Progress")
+        else:
+            checklist.append("❌ Cost: Not Started")
+        
+        return " | ".join(checklist)
+    
     def get_system_prompt(self, quotation_id: str) -> str:
-        """Generates the system prompt with context."""
+        """Generates optimized system prompt with ReAct structure."""
         
         # Fetch dynamic state from DB
         current_phase = "GATHERING"
         current_status = "?"
         target_status = "?"
+        state_checklist = "❌ All data missing"
         
         db = SessionLocal()
         try:
-            # Try to resolve quotation_id from database
             q_data = db.query(QuotationData).filter(QuotationData.quotation_id == quotation_id).first()
             
-            # If not found, check if quotation_id is actually a session_id
             if not q_data and quotation_id.startswith("session-"):
                 from app.models.memory import AgentSession
                 session = db.query(AgentSession).filter(AgentSession.session_id == quotation_id).first()
                 if session and session.quotation_id:
-                    # Update local variable to the actual quotation_id for prompt accuracy
                     real_quotation_id = session.quotation_id
                     q_data = db.query(QuotationData).filter(QuotationData.quotation_id == real_quotation_id).first()
                     quotation_id = real_quotation_id
 
             if q_data:
-                # Read finish levels from extracted_data JSON
                 extracted = q_data.extracted_data or {}
                 current_status = extracted.get("current_finish_level") or "?"
                 target_status = extracted.get("target_finish_level") or "?"
+                state_checklist = self._build_state_checklist(q_data)
 
-                # Determine phase
                 if current_status != "?" and target_status != "?":
                     if q_data.total_cost:
                         current_phase = "COMPLETE"
@@ -75,58 +116,93 @@ class SupervisorAgent:
             logger.error(f"Error fetching state for prompt: {e}")
         finally:
             db.close()
-            
-        base_prompt = """You are an expert Construction Supervisor for the Egyptian market.
-Your goal is to help users get accurate construction quotations after gathering all the required information.
+        
+        max_info_len = settings.MAX_ADDITIONAL_INFO_LENGTH
+        
+        # ReAct prompt following LangGraph best practices
+        prompt = f"""You are an expert Construction Finishing Supervisor for the Egyptian market. Your goal is to provide accurate quotations by systematically gathering data and calculating costs.
 
-You have access to a team of tools:
-1. 'collect_project_data': EXTRACTS project info (Size, Type) from the chat.
-   - Keep 'additional_info' parameter SHORT (max 200 characters). Only include NEW information from the user's latest message.
-   - Example: "500 sqm commercial bank branch, currently plastered, wants full finishing"
-2. 'search_standards': Finds building codes, requirements, finish levels. Use SHORT queries (1-5 words).
-3. 'search_materials': Finds material prices in EGP. Use SIMPLE keywords (1-3 words per query).
-   - Examples: "cement", "ceramic tiles", "paint" (NOT long descriptions)
-4. 'search_labor_rates': Finds worker wages in EGP. Use SIMPLE role names (1-2 words).
-   - Examples: "mason", "electrician", "tiler" (NOT full job descriptions)
-5. 'calculate_costs': Generates the FINAL cost breakdown. Run this when you have sufficient data.
-6. 'export_quotation_pdf': Exports the quotation as a PDF file.
-7. 'export_quotation_excel': Exports the quotation as an Excel file.
+=== REACT REASONING CYCLE ===
 
-PROCESS FLOW:
-1. Understand the Request: Read the user's latest message.
-2. Gap Analysis: Do you have the Project Size? Type? If no, ask the user.
-3. Information Retrieval:
-   - Run 'collect_project_data' with SHORT additional_info (max 200 chars).
-   - If user asks for specific materials, use 'search_materials' with SIMPLE keywords.
-   - If you need technical norms, use 'search_standards' with SHORT queries.
-4. Costing:
-   - Once you have sufficient data (Size and Type are required), run 'calculate_costs'.
-5. Export (if requested):
-   - If user asks for PDF, use 'export_quotation_pdf'.
-   - If user asks for Excel, use 'export_quotation_excel'.
-6. Response:
-   - Summarize tool outputs clearly to the user.
-   - If costing is done, present the final total and ask if they want to export.
+1. THINK: 
+   - Read the DYNAMIC STATE checklist below
+   - Analyze what data is present (✅) vs missing (❌)
+   - Determine what the user is asking for
+   - Decide which tool(s) to use based on state, not assumptions
 
-RULES:
-- Be professional but friendly.
-- Quotes are in Egyptian Pounds (EGP).
-- **CRITICAL**: Keep ALL tool arguments SHORT and CONCISE to avoid truncation errors.
-- ALWAYS use the 'collect_project_data' tool when the user gives new project info.
-- DO NOT hallucinate prices. Use the search tools.
-- If a tool returns an error, ALWAYS call 'collect_project_data' first before trying other tools.
-- DO NOT tell the user about technical errors. Instead, just call collect_project_data to fix it.
-- **CRITICAL**: When calling 'collect_project_data', ALWAYS use the quotation_id from the current context (shown below as QUOTATION_ID). DO NOT make up new IDs.
-"""
-        # Inject Dynamic Context
-        phase_block = f"""
-PHASE: {current_phase}
-STATUS: {current_status} -> {target_status}
-QUOTATION_ID: {quotation_id}
+2. ACT:
+   - Call the appropriate tool(s) based on your analysis
+   - Use exact quotation_id: {quotation_id}
+   - Keep tool arguments concise ({max_info_len} chars max)
 
-When calling collect_project_data, use this exact quotation_id: {quotation_id}
-"""
-        return base_prompt + phase_block
+3. OBSERVE:
+   - Read tool outputs carefully
+   - Update your understanding of the current state
+   - Note any errors or missing data
+
+4. REFLECT:
+   - Check if you have enough data to proceed
+   - If all required data is ✅, move to next phase
+   - If data is ❌, gather it first
+   - Stop when task is complete
+
+=== DECISION TREE (CHECK STATE CHECKLIST FIRST) ===
+
+STEP 1: Check DYNAMIC STATE checklist below:
+- If checklist shows ✅ for Size AND ✅ for Type AND ✅ for Finish Levels:
+  → PROCEED to calculate_costs (DO NOT ask for confirmation - data exists!)
+- If checklist shows ❌ for Size OR ❌ for Type OR ❌ for Finish Levels:
+  → Call collect_project_data to extract missing information
+- If checklist shows ✅ Cost: Calculated:
+  → You're done - provide summary or ask if user wants export
+
+STEP 2: Handle user requests:
+- User asks "what materials?" or "prices?" → search_materials/search_labor_rates
+- User asks "what standards?" or "specifications?" → search_standards
+- User asks "export PDF/Excel" → export_quotation_pdf/excel
+
+STEP 3: After calculate_costs completes:
+- Provide cost breakdown to user
+- Ask if they want to export or adjust anything
+- DO NOT call calculate_costs again if already calculated
+
+=== CRITICAL RULES ===
+
+1. TRUST THE STATE CHECKLIST: If checklist shows ✅, the data exists - proceed immediately
+2. DO NOT ask for data that's already in the checklist (✅ means it's present)
+3. Only ask questions if checklist shows ❌ for required fields
+4. After calculate_costs completes, stop and present results
+5. Never hallucinate prices - only use data from tools
+6. Batch searches: 2-3 tool calls max per turn
+
+=== AVAILABLE TOOLS ===
+
+- collect_project_data: Extract project info from description
+- calculate_costs: Calculate cost breakdown (requires Size + Type + Finish Levels)
+- search_materials: Search material prices (keywords: 1-3 words)
+- search_labor_rates: Search labor rates (keywords: 1-3 words)
+- search_standards: Search technical standards (keywords: 1-5 words)
+- export_quotation_pdf: Export quotation as PDF
+- export_quotation_excel: Export quotation as Excel
+
+=== OUTPUT FORMATTING ===
+
+- Use Western numerals (0-9), never Eastern Arabic (٠١٢٣٤٥٦٧٨٩)
+- Format prices: "125,000 EGP" (comma for thousands)
+- Markdown tables: | Header | Header |\\n|--------|--------|\\n| Data | Data |
+- No special Unicode characters
+- Lists: Use "1." or "-" only
+- Keep responses concise and structured
+
+=== DYNAMIC STATE (CHECK THIS FIRST) ===
+
+Phase: {current_phase}
+State Checklist: {state_checklist}
+Quotation ID: {quotation_id}
+
+Remember: If the checklist shows ✅ for all required fields, proceed to calculate_costs immediately. Do not ask for confirmation."""
+        
+        return prompt
 
     async def invoke(self, state: QuotationAgentState) -> Dict[str, Any]:
         """
@@ -146,10 +222,23 @@ When calling collect_project_data, use this exact quotation_id: {quotation_id}
         else:
             # Update existing system prompt (in case context changed, though ID usually static)
             messages[0] = SystemMessage(content=system_prompt)
-            
+
+        # Validate messages: Remove invalid assistant messages (empty content without tool_calls)
+        # This prevents OpenAI API 400 errors
+        validated_messages = []
+        for msg in messages:
+            if isinstance(msg, AIMessage):
+                # Assistant messages must have either content OR tool_calls
+                has_content = msg.content and msg.content.strip()
+                has_tool_calls = hasattr(msg, 'tool_calls') and msg.tool_calls
+                if not (has_content or has_tool_calls):
+                    logger.warning(f"Skipping invalid assistant message (empty content, no tool_calls)")
+                    continue
+            validated_messages.append(msg)
+
         # Invoke LLM
         try:
-            response = await self.llm_with_tools.ainvoke(messages)
+            response = await self.llm_with_tools.ainvoke(validated_messages)
             return {"messages": [response]}
         except Exception as e:
             logger.error(f"Supervisor LLM Error: {e}")

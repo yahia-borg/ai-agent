@@ -209,7 +209,20 @@ async def download_quotation(
     quotation_data = db.query(QuotationData).filter(
         QuotationData.quotation_id == quotation_id
     ).first()
-    
+
+    # Validate quotation_data exists and has required data
+    if not quotation_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Quotation data not found for quotation {quotation_id}. The quotation may not have been fully processed."
+        )
+
+    if not quotation_data.cost_breakdown:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Quotation {quotation_id} has no cost breakdown data. Please ensure cost calculation is complete."
+        )
+
     # Normalize format to lowercase
     format = format.lower()
     
@@ -239,13 +252,17 @@ async def download_quotation(
         # Generate both files
         pdf_buffer = pdf_generator.generate_quotation_pdf(quotation, quotation_data)
         excel_buffer = excel_generator.generate_quotation_excel(quotation, quotation_data)
-        
+
+        # Ensure buffers are at the start before reading
+        pdf_buffer.seek(0)
+        excel_buffer.seek(0)
+
         # Create ZIP file
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             zip_file.writestr(f"quotation_{quotation_id}.pdf", pdf_buffer.read())
             zip_file.writestr(f"quotation_{quotation_id}.xlsx", excel_buffer.read())
-        
+
         zip_buffer.seek(0)
         
         return StreamingResponse(

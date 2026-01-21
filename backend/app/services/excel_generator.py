@@ -84,8 +84,8 @@ class ExcelGenerator:
                     "name": item.get("name", ""),
                     "quantity": item.get("quantity", 0),
                     "unit": item.get("unit", ""),
-                    "unit_price": item.get("unit_cost", 0),
-                    "total": item.get("cost", 0)
+                    "unit_price": item.get("unit_price", 0),
+                    "total": item.get("total", 0)
                 })
                 item_number += 1
         
@@ -95,12 +95,12 @@ class ExcelGenerator:
                 all_items.append({
                     "item_no": item_number,
                     "category": "Labor",
-                    "description": f"{trade.get('trade', '').replace('_', ' ').title()} - {trade.get('hours', 0)} hours",
+                    "description": trade.get("description", f"{trade.get('trade', '').replace('_', ' ').title()}"),
                     "name": trade.get("trade", "").replace("_", " ").title(),
-                    "quantity": trade.get("hours", 0),
-                    "unit": "Hour",
-                    "unit_price": trade.get("rate", 0),
-                    "total": trade.get("cost", 0)
+                    "quantity": trade.get("quantity", 0),
+                    "unit": trade.get("unit", "Hour"),
+                    "unit_price": trade.get("unit_price", 0),
+                    "total": trade.get("total", 0)
                 })
                 item_number += 1
         
@@ -292,7 +292,7 @@ class ExcelGenerator:
             # Apply borders
             for col in range(1, 8):
                 ws.cell(row=row, column=col).border = self.border
-            
+
             row += 1
         
         # If no items, add a message

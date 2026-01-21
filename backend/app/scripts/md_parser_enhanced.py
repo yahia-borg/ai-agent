@@ -684,18 +684,127 @@ def parse_knowledge_from_md(file_path: str) -> List[Dict[str, Any]]:
     return knowledge_items
 
 
-if __name__ == "__main__":
-    # Test
-    test_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data/clean/egypt-construction-costs-2025.md"))
-    if os.path.exists(test_file):
-        materials = parse_materials_from_md(test_file)
-        print(f"Extracted {len(materials)} materials")
-        if materials:
-            print("Sample:", materials[0])
+def parse_knowledge_hierarchical_from_md(
+    file_path: str,
+    target_file: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Parse knowledge items using hierarchical chunking.
+    
+    - Splits only by H3 headings (### 1., ### 2., ### 3.)
+    - Keeps all H4 subsections (#### 1.1, #### 1.2, etc.) together within each H3 chunk
+    - Preserves bilingual content (Arabic and English)
+    - Extracts phase information for organizing
+    
+    Args:
+        file_path: Path to markdown file
+        target_file: Optional target filename filter (only process this file)
+    
+    Returns:
+        List of knowledge items with structured topics.
+    """
+    if not os.path.exists(file_path):
+        return []
+    
+    # Check if we should process this file
+    if target_file and os.path.basename(file_path) != target_file:
+        return []
+    
+    knowledge_items = []
+    source_doc = os.path.basename(file_path)
+    
+    with open(file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    
+    current_topic = None
+    current_content = []
+    chunk_number = 0
+    
+    # Filter out unwanted patterns
+    unwanted_patterns = [
+        'table of contents', 'toc', 'فهرس', 'قائمة',
+        'list of figures', 'list of tables', 'قائمة الأشكال', 'قائمة الجداول'
+    ]
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i].rstrip()
         
-        labor = parse_labor_rates_from_md(test_file)
-        print(f"Extracted {len(labor)} labor rates")
+        # Skip empty lines at chunk boundaries (but keep them in content)
+        stripped_line = line.strip()
         
-        knowledge = parse_knowledge_from_md(test_file)
-        print(f"Extracted {len(knowledge)} knowledge items")
+        # Check for H3 heading pattern: ### followed by number and period (e.g., "### 1. ...")
+        # Also handle patterns like "### Phase 1: ..." or "### 1. ..."
+        # Pattern 1: "### 1. Title" or "### 1. Title (Arabic)"
+        h3_pattern1 = re.match(r'^###\s+(\d+)\.\s+(.+)$', stripped_line)
+        # Pattern 2: "### Phase 1: Title" or "### Phase 1: Title (Arabic)"
+        h3_pattern2 = re.match(r'^###\s+Phase\s+(\d+):\s+(.+)$', stripped_line)
+        
+        h3_pattern = h3_pattern1 or h3_pattern2
+        
+        if h3_pattern:
+            # Save previous chunk if exists
+            if current_topic and current_content:
+                content_text = '\n'.join(current_content).strip()
+                # Remove leading/trailing empty lines
+                content_text = re.sub(r'^\n+|\n+$', '', content_text)
+                
+                if len(content_text) >= 50:  # Minimum content length
+                    chunk_number += 1
+                    knowledge_items.append({
+                        "topic": current_topic,
+                        "content": content_text,
+                        "source_document": source_doc,
+                        "page_number": chunk_number
+                    })
+            
+            # Start new chunk with H3 heading
+            phase_number = h3_pattern.group(1)
+            phase_title = h3_pattern.group(2).strip()
+            
+            # Extract Arabic name if present (text in parentheses)
+            # Format: "English Name (Arabic Name - Additional)"
+            arabic_match = re.search(r'\(([^)]+)\)', phase_title)
+            arabic_name = arabic_match.group(1).strip() if arabic_match else None
+            
+            # Extract English name (before parentheses if Arabic exists)
+            if arabic_match:
+                english_name = phase_title[:arabic_match.start()].strip()
+            else:
+                english_name = phase_title
+            
+            # Structure topic: "Phase {number}: {English name} ({Arabic name})"
+            if arabic_name and len(arabic_name) > 0:
+                structured_topic = f"Phase {phase_number}: {english_name} ({arabic_name})"
+            else:
+                structured_topic = f"Phase {phase_number}: {english_name}"
+            
+            current_topic = structured_topic[:100]  # Limit to schema max length
+            current_content = [line]  # Include the H3 heading in content
+            
+        elif current_topic:
+            # Add line to current chunk (includes H4, paragraphs, lists, etc.)
+            # Skip unwanted patterns
+            if not any(pattern in stripped_line.lower() for pattern in unwanted_patterns):
+                current_content.append(line)
+        
+        i += 1
+    
+    # Save last chunk
+    if current_topic and current_content:
+        content_text = '\n'.join(current_content).strip()
+        content_text = re.sub(r'^\n+|\n+$', '', content_text)
+        
+        if len(content_text) >= 50:
+            chunk_number += 1
+            knowledge_items.append({
+                "topic": current_topic,
+                "content": content_text,
+                "source_document": source_doc,
+                "page_number": chunk_number
+            })
+    
+    return knowledge_items
+
+
 

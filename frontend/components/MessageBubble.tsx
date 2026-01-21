@@ -37,16 +37,16 @@ export default function MessageBubble({ message, index }: MessageBubbleProps) {
         >
             {/* Avatar */}
             <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-md ${isUser
-                    ? 'bg-gradient-to-br from-indigo-500 to-indigo-600'
-                    : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                ? 'bg-gradient-to-br from-indigo-500 to-indigo-600'
+                : 'bg-gradient-to-br from-blue-500 to-blue-600'
                 }`}>
                 {isUser ? <User className="w-5 h-5 text-white" /> : <Bot className="w-5 h-5 text-white" />}
             </div>
 
             {/* Message bubble */}
             <div className={`max-w-[75%] rounded-3xl px-5 py-4 shadow-md ${isUser
-                    ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-tr-sm'
-                    : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-sm border border-slate-200 dark:border-slate-700'
+                ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-tr-sm'
+                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-sm border border-slate-200 dark:border-slate-700'
                 }`}>
                 {/* Attachments */}
                 {message.attachments && message.attachments.length > 0 && (
@@ -75,7 +75,30 @@ export default function MessageBubble({ message, index }: MessageBubbleProps) {
 
                 {/* Message content */}
                 <div className={`prose prose-sm ${isUser ? 'prose-invert' : 'dark:prose-invert'} max-w-none leading-relaxed`}>
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <ReactMarkdown
+                        components={{
+                            a: ({ node, ...props }) => {
+                                const href = props.href || '';
+                                const isRelativeApi = href.startsWith('/api/');
+                                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+                                const fullHref = isRelativeApi ? `${apiUrl}${href}` : href;
+
+                                return (
+                                    <a
+                                        {...props}
+                                        href={fullHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 dark:text-blue-400 font-medium hover:underline"
+                                    >
+                                        {props.children}
+                                    </a>
+                                );
+                            }
+                        }}
+                    >
+                        {message.content}
+                    </ReactMarkdown>
                 </div>
             </div>
         </div>

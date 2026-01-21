@@ -31,14 +31,49 @@ class QdrantService:
             self.client = QdrantClient(url=self.qdrant_url)
 
         # Initialize embedding model - prioritize local path if available
-        if self.embedding_model_path and os.path.exists(self.embedding_model_path):
-            logger.info(f"Loading embedding model from local path: {self.embedding_model_path}")
-            self.embedding_model = SentenceTransformer(self.embedding_model_path)
-        else:
-            logger.info(f"Loading embedding model from HuggingFace: {self.embedding_model_name}")
-            if self.embedding_model_path:
-                logger.warning(f"Local model path not found: {self.embedding_model_path}")
-            self.embedding_model = SentenceTransformer(self.embedding_model_name)
+        # Force CPU device if CUDA is not available or incompatible
+        device = getattr(settings, 'EMBEDDING_DEVICE', None)
+        if device is None:
+            # Default to CPU for safety (can be overridden via settings)
+            # CUDA will be automatically used if available and compatible
+            device = "cpu"
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    # Try to use CUDA, but fallback to CPU if not compatible
+                    try:
+                        # Test if CUDA is actually usable
+                        test_tensor = torch.zeros(1).cuda()
+                        device = "cuda"
+                        del test_tensor
+                        torch.cuda.empty_cache()
+                    except Exception as e:
+                        logger.warning(f"CUDA is available but not compatible: {e}. Falling back to CPU.")
+                        device = "cpu"
+            except Exception:
+                device = "cpu"
+        
+        # Try to load model with specified device, fallback to CPU if it fails
+        try:
+            if self.embedding_model_path and os.path.exists(self.embedding_model_path):
+                logger.info(f"Loading embedding model from local path: {self.embedding_model_path} (device: {device})")
+                self.embedding_model = SentenceTransformer(self.embedding_model_path, device=device)
+            else:
+                logger.info(f"Loading embedding model from HuggingFace: {self.embedding_model_name} (device: {device})")
+                if self.embedding_model_path:
+                    logger.warning(f"Local model path not found: {self.embedding_model_path}")
+                self.embedding_model = SentenceTransformer(self.embedding_model_name, device=device)
+        except Exception as e:
+            # If device fails, retry with CPU
+            if device != "cpu":
+                logger.warning(f"Failed to load model with device {device}: {e}. Retrying with CPU...")
+                device = "cpu"
+                if self.embedding_model_path and os.path.exists(self.embedding_model_path):
+                    self.embedding_model = SentenceTransformer(self.embedding_model_path, device=device)
+                else:
+                    self.embedding_model = SentenceTransformer(self.embedding_model_name, device=device)
+            else:
+                raise
 
         self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
         logger.info(f"Embedding dimension: {self.embedding_dim}")

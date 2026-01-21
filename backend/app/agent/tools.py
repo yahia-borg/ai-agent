@@ -1,19 +1,26 @@
 from app.models.quotation import Quotation, QuotationData
 from app.core.database import SessionLocal
+from app.core.db_context import get_or_create_async_db_session, db_session_context
+from app.core.config import settings
 from app.models.resources import Material, LaborRate
 from app.models.knowledge import KnowledgeItem
-from sqlalchemy import or_, text
+from sqlalchemy import or_, text, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import json
 import re
 import logging
 from typing import List, Dict, Any, Optional
 import uuid
-from app.agent.export import generate_pdf_quotation, generate_excel_quotation
+# NOTE: Legacy export functions removed - use PDFGenerator and ExcelGenerator instead
+from app.services.pdf_generator import PDFGenerator
+from app.services.excel_generator import ExcelGenerator
 from langchain_core.tools import tool
 from app.utils.tool_cache import get_cached_result, set_cached_result
 from app.utils.quotation_descriptions import get_category_description
 from app.utils.language_detector import detect_language
 import os
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -159,17 +166,36 @@ async def search_materials(query: str) -> str:
     """
     Search for materials in the database using intelligent multilingual matching.
     
-    Supports both English and Arabic queries. Automatically detects language if not provided.
-    Handles compound queries by splitting into individual words if full query fails.
+    DECISION CRITERIA:
+    - Call when user asks about specific materials or prices
+    - Call when you need material information for cost calculation
+    - Use SIMPLE keywords (1-3 words) - avoid long descriptive phrases
+    - Batch multiple material searches into fewer calls when possible
+    - Do NOT call for general questions - only when specific materials are mentioned
     
-    Examples:
-    - "cement" (English) → finds materials with English name containing "cement"
-    - "أسمنت" (Arabic) → finds materials with Arabic name containing "أسمنت"
-    - "جص جدران" → tries full query, then splits to "جص" and "جدران" if needed
-    - "marble" → searches in both languages for best results
+    INPUT FORMAT:
+    - query: Simple material name or keyword (1-3 words max)
+      Examples: "cement", "أسمنت", "ceramic tile", "دهان", "marble"
+      Avoid: "high quality Italian marble for flooring" → use "marble" instead
     
-    Returns JSON array of materials with: id, name (bilingual), price, unit, currency, category.
-    If no results, returns helpful message with suggestions.
+    OUTPUT FORMAT:
+    - Returns: JSON array of materials with id, name (bilingual), price, unit, currency, category
+    - If no results: Returns JSON with error message and suggestions
+    - Format: [{"id": 1, "name": {"en": "...", "ar": "..."}, "price": 150.0, "unit": "bag", ...}, ...]
+    
+    STATE TRANSITIONS:
+    - Does not modify state directly
+    - Results used by calculate_costs for material pricing
+    
+    ERROR HANDLING:
+    - If no results: Returns suggestions for similar materials
+    - Automatically tries word splitting for compound queries
+    - Always returns JSON (never crashes)
+    
+    EXAMPLES:
+    - search_materials("cement") → Returns cement materials with prices in EGP
+    - search_materials("أسمنت") → Returns Arabic-named cement materials
+    - search_materials("ceramic tile") → Returns ceramic tile options
     """
     # Check cache first
     cache_key = query
@@ -177,23 +203,26 @@ async def search_materials(query: str) -> str:
     if cached is not None:
         return cached
     
-    db = SessionLocal()
+    # Use context session if available, otherwise create new one
+    db = await get_or_create_async_db_session()
+    should_close = db_session_context.get() is None  # Only close if we created it
+    
     try:
         # Detect language from query
         detected = detect_language(query)
         language = "ar" if detected == "ar" else "en"
         
         # Use PostgreSQL multilingual search function
-        result = db.execute(
+        result = await db.execute(
             text("""
                 SELECT * FROM search_materials_multilingual(
                     :query,
                     :language,
                     NULL,  -- category_id (optional filter)
-                    10     -- limit
+                    :limit
                 )
             """),
-            {"query": query, "language": language}
+            {"query": query, "language": language, "limit": settings.DEFAULT_SEARCH_LIMIT}
         )
         
         rows = result.fetchall()
@@ -210,16 +239,16 @@ async def search_materials(query: str) -> str:
                 if len(word.strip()) < 2:  # Skip very short words
                     continue
                     
-                word_result = db.execute(
+                word_result = await db.execute(
                     text("""
                         SELECT * FROM search_materials_multilingual(
                             :query,
                             :language,
                             NULL,
-                            5
+                            :limit
                         )
                     """),
-                    {"query": word.strip(), "language": language}
+                    {"query": word.strip(), "language": language, "limit": settings.WORD_SEARCH_LIMIT}
                 )
                 
                 word_rows = word_result.fetchall()
@@ -228,7 +257,7 @@ async def search_materials(query: str) -> str:
                         seen_ids.add(row.id)
                         all_rows.append(row)
             
-            rows = all_rows[:10]  # Limit to 10 total results
+            rows = all_rows[:settings.DEFAULT_SEARCH_LIMIT]  # Limit to default search limit
         
         if not rows:
             logger.warning(f"search_materials query='{query}' language='{language}' - no results found (tried full query and word splitting)")
@@ -247,9 +276,21 @@ async def search_materials(query: str) -> str:
             }, ensure_ascii=False)
         else:
             materials_list = []
+            # Eagerly load relationships to avoid lazy loading issues in async
+            material_ids = [row.id for row in rows]
+            materials_result = await db.execute(
+                select(Material)
+                .options(
+                    selectinload(Material.category),
+                    selectinload(Material.unit),
+                    selectinload(Material.currency)
+                )
+                .filter(Material.id.in_(material_ids))
+            )
+            materials_dict = {m.id: m for m in materials_result.scalars().all()}
+            
             for row in rows:
-                # Get related data
-                material = db.query(Material).filter(Material.id == row.id).first()
+                material = materials_dict.get(row.id)
                 if not material:
                     continue
                 
@@ -297,24 +338,45 @@ async def search_materials(query: str) -> str:
         logger.error(f"Error searching materials: {str(e)}", exc_info=True)
         return json.dumps({"error": f"Error searching materials: {str(e)}"})
     finally:
-        db.close()
+        # Only close if we created the session (not from context)
+        if should_close:
+            await db.close()
 
 @tool
 async def search_labor_rates(query: str) -> str:
     """
     Search for labor rates by role name using intelligent multilingual matching.
     
-    Supports both English and Arabic queries. Automatically detects language if not provided.
-    Handles compound queries by splitting into individual words if full query fails.
+    DECISION CRITERIA:
+    - Call when user asks about labor costs or worker wages
+    - Call when you need labor rate information for cost calculation
+    - Use SIMPLE role names (1-2 words) - avoid long descriptions
+    - Batch multiple role searches when possible
+    - Do NOT call for general questions - only when specific roles are mentioned
     
-    Examples:
-    - "mason" (English) → finds labor rates with English role containing "mason"
-    - "بناء" (Arabic) → finds labor rates with Arabic role containing "بناء"
-    - "فني بلاط" → tries full query, then splits to "فني" and "بلاط" if needed
-    - "electrician" → searches in both languages for best results
+    INPUT FORMAT:
+    - query: Simple role name (1-2 words max)
+      Examples: "mason", "بناء", "electrician", "كهربائي", "plumber", "سباك"
+      Avoid: "skilled experienced mason worker" → use "mason" instead
     
-    Returns JSON array of labor rates with: role (bilingual), hourly_rate, daily_rate, currency.
-    If no results, returns helpful message with suggestions.
+    OUTPUT FORMAT:
+    - Returns: JSON array of labor rates with role (bilingual), hourly_rate, daily_rate, currency
+    - If no results: Returns JSON with error message and suggestions
+    - Format: [{"id": 1, "role": {"en": "...", "ar": "..."}, "hourly_rate": 50.0, "daily_rate": 400.0, ...}, ...]
+    
+    STATE TRANSITIONS:
+    - Does not modify state directly
+    - Results used by calculate_costs for labor pricing
+    
+    ERROR HANDLING:
+    - If no results: Returns suggestions for similar roles
+    - Automatically tries word splitting for compound queries
+    - Always returns JSON (never crashes)
+    
+    EXAMPLES:
+    - search_labor_rates("mason") → Returns mason labor rates in EGP
+    - search_labor_rates("بناء") → Returns Arabic-named mason rates
+    - search_labor_rates("electrician") → Returns electrician hourly/daily rates
     """
     # Check cache first
     cache_key = query
@@ -322,23 +384,26 @@ async def search_labor_rates(query: str) -> str:
     if cached is not None:
         return cached
     
-    db = SessionLocal()
+    # Use context session if available, otherwise create new one
+    db = await get_or_create_async_db_session()
+    should_close = db_session_context.get() is None  # Only close if we created it
+    
     try:
         # Detect language from query
         detected = detect_language(query)
         language = "ar" if detected == "ar" else "en"
         
         # Use PostgreSQL multilingual search function
-        result = db.execute(
+        result = await db.execute(
             text("""
                 SELECT * FROM search_labor_rates_multilingual(
                     :query,
                     :language,
                     NULL,  -- category_id (optional filter)
-                    10     -- limit
+                    :limit
                 )
             """),
-            {"query": query, "language": language}
+            {"query": query, "language": language, "limit": settings.DEFAULT_SEARCH_LIMIT}
         )
         
         rows = result.fetchall()
@@ -355,16 +420,16 @@ async def search_labor_rates(query: str) -> str:
                 if len(word.strip()) < 2:  # Skip very short words
                     continue
                     
-                word_result = db.execute(
+                word_result = await db.execute(
                     text("""
                         SELECT * FROM search_labor_rates_multilingual(
                             :query,
                             :language,
                             NULL,
-                            5
+                            :limit
                         )
                     """),
-                    {"query": word.strip(), "language": language}
+                    {"query": word.strip(), "language": language, "limit": settings.WORD_SEARCH_LIMIT}
                 )
                 
                 word_rows = word_result.fetchall()
@@ -373,7 +438,7 @@ async def search_labor_rates(query: str) -> str:
                         seen_ids.add(row.id)
                         all_rows.append(row)
             
-            rows = all_rows[:10]  # Limit to 10 total results
+            rows = all_rows[:settings.DEFAULT_SEARCH_LIMIT]  # Limit to default search limit
         
         if not rows:
             logger.warning(f"search_labor_rates query='{query}' language='{language}' - no results found (tried full query and word splitting)")
@@ -392,9 +457,20 @@ async def search_labor_rates(query: str) -> str:
             }, ensure_ascii=False)
         else:
             labor_list = []
+            # Eagerly load relationships to avoid lazy loading issues in async
+            labor_ids = [row.id for row in rows]
+            labor_result = await db.execute(
+                select(LaborRate)
+                .options(
+                    selectinload(LaborRate.currency),
+                    selectinload(LaborRate.category)
+                )
+                .filter(LaborRate.id.in_(labor_ids))
+            )
+            labor_dict = {l.id: l for l in labor_result.scalars().all()}
+            
             for row in rows:
-                # Get related data
-                labor = db.query(LaborRate).filter(LaborRate.id == row.id).first()
+                labor = labor_dict.get(row.id)
                 if not labor:
                     continue
                 
@@ -431,13 +507,41 @@ async def search_labor_rates(query: str) -> str:
         logger.error(f"Error searching labor rates: {str(e)}", exc_info=True)
         return json.dumps({"error": f"Error searching labor rates: {str(e)}"})
     finally:
-        db.close()
+        # Only close if we created the session (not from context)
+        if should_close:
+            await db.close()
 
 @tool
 async def search_standards(query: str) -> str:
     """
     Search the Knowledge Base for construction standards, codes, or technical specifications.
-    Useful for finding mix ratios, consumption rates, or building code requirements.
+    
+    DECISION CRITERIA:
+    - Call when user asks about building codes, standards, or technical requirements
+    - Call when you need mix ratios, consumption rates, or finish level specifications
+    - Use SHORT queries (1-5 words) - avoid long questions
+    - Do NOT call for material/labor price questions (use search_materials/search_labor_rates)
+    
+    INPUT FORMAT:
+    - query: Short technical query (1-5 words)
+      Examples: "plaster mix ratio", "cement consumption", "finish level requirements", "building code"
+      Avoid: "What is the proper mix ratio for plastering walls according to Egyptian standards?" → use "plaster mix ratio" instead
+    
+    OUTPUT FORMAT:
+    - Returns: JSON array of knowledge items with topic, source, page, content_snippet
+    - Format: [{"topic": "...", "source": "...", "page": 1, "content_snippet": "..."}, ...]
+    
+    STATE TRANSITIONS:
+    - Does not modify state directly
+    - Provides context for understanding requirements
+    
+    ERROR HANDLING:
+    - If no results: Returns "No standards found in Knowledge Base."
+    - Always returns formatted result (never crashes)
+    
+    EXAMPLES:
+    - search_standards("plaster mix") → Returns plaster mix ratio standards
+    - search_standards("finish level") → Returns finish level specifications
     """
     # Check cache first
     cached = get_cached_result("search_standards", query)
@@ -525,7 +629,10 @@ async def create_quotation(items_json: str, project_description: Optional[str] =
     
     Returns: JSON string with quotation_id and total_cost. PDF/Excel files are generated on-demand via download endpoints.
     """
-    db = SessionLocal()
+    # Use context session if available, otherwise create new one
+    db = await get_or_create_async_db_session()
+    should_close = db_session_context.get() is None  # Only close if we created it
+    
     try:
         try:
             items = json.loads(items_json)
@@ -601,7 +708,7 @@ async def create_quotation(items_json: str, project_description: Optional[str] =
             status="completed"
         )
         db.add(quotation)
-        db.commit()
+        await db.commit()
         
         # Create QuotationData (items live in JSON)
         q_data = QuotationData(
@@ -610,7 +717,7 @@ async def create_quotation(items_json: str, project_description: Optional[str] =
             total_cost=total_amount
         )
         db.add(q_data)
-        db.commit()
+        await db.commit()
         
         # Return JSON with quotation info (files are generated on-demand via download endpoints)
         result = {
@@ -622,46 +729,86 @@ async def create_quotation(items_json: str, project_description: Optional[str] =
         return json.dumps(result, ensure_ascii=False)
 
     except Exception as e:
-        db.rollback()
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         return json.dumps({"error": f"Error creating quotation: {str(e)}"})
     finally:
-        db.close()
+        # Only close if we created the session (not from context)
+        if should_close:
+            await db.close()
 
 
 @tool
 async def export_quotation_pdf(quotation_id: str) -> str:
     """
-    Export a quotation as a PDF file.
-
-    Args:
-        quotation_id: The ID of the quotation to export.
-
-    Returns:
-        Success message with file path or error message.
+    Export a quotation as a PDF file with detailed material breakdown.
+    
+    DECISION CRITERIA:
+    - Call when user explicitly requests PDF export
+    - Call only after calculate_costs has been executed (cost_breakdown must exist)
+    - Do NOT call if quotation is not complete (no cost breakdown)
+    
+    INPUT FORMAT:
+    - quotation_id: The quotation ID from current context (must have cost_breakdown)
+    
+    OUTPUT FORMAT:
+    - Returns: JSON with success status, message, filepath, and quotation_id
+    - Format: {"success": true, "message": "PDF generated: filename.pdf", "filepath": "...", "quotation_id": "..."}
+    - On error: Returns JSON with error message
+    
+    STATE TRANSITIONS:
+    - Does not modify state
+    - Generates PDF file in exports directory
+    
+    ERROR HANDLING:
+    - If quotation not found: Returns error message
+    - If no cost breakdown: Returns error asking to calculate costs first
+    - Always returns JSON (never crashes)
+    
+    EXAMPLES:
+    - export_quotation_pdf("quot-123") → Generates PDF with full BOQ breakdown
     """
-    db = SessionLocal()
+    # Use context session if available, otherwise create new one
+    db = await get_or_create_async_db_session()
+    should_close = db_session_context.get() is None  # Only close if we created it
+    
     try:
         # Fetch quotation
-        quotation = db.query(Quotation).filter(Quotation.id == quotation_id).first()
+        result = await db.execute(select(Quotation).filter(Quotation.id == quotation_id))
+        quotation = result.scalar_one_or_none()
         if not quotation:
             return f"Error: Quotation {quotation_id} not found."
 
-        q_data = db.query(QuotationData).filter(QuotationData.quotation_id == quotation_id).first()
+        q_data_result = await db.execute(
+            select(QuotationData).filter(QuotationData.quotation_id == quotation_id)
+        )
+        q_data = q_data_result.scalar_one_or_none()
         if not q_data or not q_data.cost_breakdown:
             return "Error: No cost breakdown found. Please create a quotation first."
 
-        # Generate PDF
-        items = q_data.cost_breakdown
-        total_cost = q_data.total_cost or 0
+        # Generate PDF using professional service
+        pdf_gen = PDFGenerator()
+        pdf_buffer = pdf_gen.generate_quotation_pdf(quotation, q_data)
+        
+        # Save to exports directory for persistence
+        filename = f"quotation_{quotation_id}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
+        filepath = os.path.join(os.path.dirname(__file__), "../../../data/exports", filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        with open(filepath, "wb") as f:
+            f.write(pdf_buffer.getvalue())
 
-        filepath = generate_pdf_quotation(quotation_id, items, total_cost)
-
-        # Return success with file info
-        filename = os.path.basename(filepath)
+        # Return success with download URL
+        # We provide both the relative URL and a clear message for the supervisor
+        download_url = f"/api/v1/quotations/{quotation_id}/download?format=pdf"
+        
         return json.dumps({
             "success": True,
-            "message": f"PDF generated successfully: {filename}",
-            "filepath": filepath,
+            "message": f"Professional PDF generated: {filename}",
+            "download_url": download_url,
+            "instructions": f"Please provide this exact link to the user: {download_url}",
             "quotation_id": quotation_id
         }, ensure_ascii=False)
 
@@ -669,43 +816,79 @@ async def export_quotation_pdf(quotation_id: str) -> str:
         logger.error(f"Error generating PDF: {str(e)}")
         return json.dumps({"error": f"Error generating PDF: {str(e)}"})
     finally:
-        db.close()
+        # Only close if we created the session (not from context)
+        if should_close:
+            await db.close()
 
 
 @tool
 async def export_quotation_excel(quotation_id: str) -> str:
     """
-    Export a quotation as an Excel file.
-
-    Args:
-        quotation_id: The ID of the quotation to export.
-
-    Returns:
-        Success message with file path or error message.
+    Export a quotation as an Excel file with detailed material breakdown.
+    
+    DECISION CRITERIA:
+    - Call when user explicitly requests Excel export
+    - Call only after calculate_costs has been executed (cost_breakdown must exist)
+    - Do NOT call if quotation is not complete (no cost breakdown)
+    
+    INPUT FORMAT:
+    - quotation_id: The quotation ID from current context (must have cost_breakdown)
+    
+    OUTPUT FORMAT:
+    - Returns: JSON with success status, message, filepath, and quotation_id
+    - Format: {"success": true, "message": "Excel generated: filename.xlsx", "filepath": "...", "quotation_id": "..."}
+    - On error: Returns JSON with error message
+    
+    STATE TRANSITIONS:
+    - Does not modify state
+    - Generates Excel file in exports directory
+    
+    ERROR HANDLING:
+    - If quotation not found: Returns error message
+    - If no cost breakdown: Returns error asking to calculate costs first
+    - Always returns JSON (never crashes)
+    
+    EXAMPLES:
+    - export_quotation_excel("quot-123") → Generates Excel with full BOQ breakdown
     """
-    db = SessionLocal()
+    # Use context session if available, otherwise create new one
+    db = await get_or_create_async_db_session()
+    should_close = db_session_context.get() is None  # Only close if we created it
+    
     try:
         # Fetch quotation
-        quotation = db.query(Quotation).filter(Quotation.id == quotation_id).first()
+        result = await db.execute(select(Quotation).filter(Quotation.id == quotation_id))
+        quotation = result.scalar_one_or_none()
         if not quotation:
             return f"Error: Quotation {quotation_id} not found."
 
-        q_data = db.query(QuotationData).filter(QuotationData.quotation_id == quotation_id).first()
+        q_data_result = await db.execute(
+            select(QuotationData).filter(QuotationData.quotation_id == quotation_id)
+        )
+        q_data = q_data_result.scalar_one_or_none()
         if not q_data or not q_data.cost_breakdown:
             return "Error: No cost breakdown found. Please create a quotation first."
 
-        # Generate Excel
-        items = q_data.cost_breakdown
-        total_cost = q_data.total_cost or 0
+        # Generate Excel using professional service
+        excel_gen = ExcelGenerator()
+        excel_buffer = excel_gen.generate_quotation_excel(quotation, q_data)
+        
+        # Save to exports directory for persistence
+        filename = f"quotation_{quotation_id}_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx"
+        filepath = os.path.join(os.path.dirname(__file__), "../../../data/exports", filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        with open(filepath, "wb") as f:
+            f.write(excel_buffer.getvalue())
 
-        filepath = generate_excel_quotation(quotation_id, items, total_cost)
-
-        # Return success with file info
-        filename = os.path.basename(filepath)
+        # Return success with download URL
+        download_url = f"/api/v1/quotations/{quotation_id}/download?format=excel"
+        
         return json.dumps({
             "success": True,
-            "message": f"Excel file generated successfully: {filename}",
-            "filepath": filepath,
+            "message": f"Professional Excel generated: {filename}",
+            "download_url": download_url,
+            "instructions": f"Please provide this exact link to the user: {download_url}",
             "quotation_id": quotation_id
         }, ensure_ascii=False)
 
@@ -713,4 +896,6 @@ async def export_quotation_excel(quotation_id: str) -> str:
         logger.error(f"Error generating Excel: {str(e)}")
         return json.dumps({"error": f"Error generating Excel: {str(e)}"})
     finally:
-        db.close()
+        # Only close if we created the session (not from context)
+        if should_close:
+            await db.close()

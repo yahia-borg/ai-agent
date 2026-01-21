@@ -347,10 +347,26 @@ def seed_egycon_cost_csv(db: Session, csv_path: str) -> int:
                     'labor'
                 )
 
+                # IMPORTANT: Use specification as role name if it's a specific trade
+                # This allows searching for "mason", "electrician", etc.
+                # instead of generic "Skilled Worker"
+                if spec and spec not in ['N/A', 'غير متاح', '']:
+                    # Use the specific trade name as the role (e.g., "Mason", "Electrician")
+                    role_en = spec
+                    role_ar = spec_ar if spec_ar and spec_ar not in ['غير متاح', ''] else spec
+                    description_en = f"{item_name} - {spec}"
+                    description_ar = f"{item_name_ar} - {spec_ar}" if item_name_ar and spec_ar else description_en
+                else:
+                    # Use the item name for generic roles (e.g., "Unskilled Labor")
+                    role_en = item_name
+                    role_ar = item_name_ar if item_name_ar else item_name
+                    description_en = item_name
+                    description_ar = item_name_ar if item_name_ar else item_name
+
                 try:
-                    # Check if labor rate exists
+                    # Check if labor rate exists (by specific role name)
                     existing = db.query(LaborRate).filter(
-                        LaborRate.role['en'].astext == item_name
+                        LaborRate.role['en'].astext == role_en
                     ).first()
 
                     if existing:
@@ -361,8 +377,8 @@ def seed_egycon_cost_csv(db: Session, csv_path: str) -> int:
                         existing.updated_at = None
                     else:
                         labor = LaborRate(
-                            role={"en": item_name, "ar": full_name_ar},
-                            description={"en": spec, "ar": spec_ar} if spec and spec != 'N/A' else None,
+                            role={"en": role_en, "ar": role_ar},
+                            description={"en": description_en, "ar": description_ar},
                             category_id=category_id,
                             daily_rate=price if is_daily else None,
                             hourly_rate=price if not is_daily else None,
@@ -376,7 +392,7 @@ def seed_egycon_cost_csv(db: Session, csv_path: str) -> int:
                     labor_count += 1
                 except Exception as e:
                     db.rollback()
-                    logger.error(f"Failed to insert labor rate {item_name}: {e}")
+                    logger.error(f"Failed to insert labor rate {role_en}: {e}")
             else:
                 # Seed as material
                 # Get unit ID

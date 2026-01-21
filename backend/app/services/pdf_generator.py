@@ -20,12 +20,45 @@ logger = logging.getLogger(__name__)
 
 class PDFGenerator:
     """Generate PDF quotation documents"""
-    
+
+    # Class-level flags for Arabic support availability
+    _arabic_reshaper_available = None
+    _bidi_available = None
+
+    @classmethod
+    def _check_arabic_dependencies(cls):
+        """Check and cache availability of Arabic text processing dependencies."""
+        if cls._arabic_reshaper_available is None:
+            try:
+                import arabic_reshaper
+                cls._arabic_reshaper_available = True
+            except ImportError:
+                cls._arabic_reshaper_available = False
+                logger.warning(
+                    "arabic-reshaper not installed. Arabic characters may not render correctly. "
+                    "Install with: pip install arabic-reshaper"
+                )
+
+        if cls._bidi_available is None:
+            try:
+                from bidi.algorithm import get_display
+                cls._bidi_available = True
+            except ImportError:
+                cls._bidi_available = False
+                logger.warning(
+                    "python-bidi not installed. Arabic text direction may be incorrect. "
+                    "Install with: pip install python-bidi"
+                )
+
+        return cls._arabic_reshaper_available, cls._bidi_available
+
     def __init__(self):
         self.styles = getSampleStyleSheet()
         self.arabic_font_name = 'Helvetica'  # Default fallback
         self._setup_bilingual_fonts()
         self._setup_custom_styles()
+        # Check Arabic dependencies at initialization
+        self._check_arabic_dependencies()
     
     def _setup_custom_styles(self):
         """Setup custom paragraph styles with Arabic font support"""
@@ -45,11 +78,15 @@ class PDFGenerator:
             self.styles.add(ParagraphStyle(
                 name='SectionHeading',
                 parent=self.styles['Heading2'],
-                fontSize=16,
-                textColor=colors.HexColor('#0070f3'),
+                fontSize=14,
+                textColor=colors.white,
+                backColor=colors.HexColor('#2c3e50'),  # Dark blue background
                 spaceAfter=12,
                 spaceBefore=20,
-                fontName=self.arabic_font_name
+                fontName=self.arabic_font_name,
+                leftIndent=6,
+                rightIndent=6,
+                borderPadding=8
             ))
         
         # Modify existing BodyText style instead of adding a new one
@@ -116,6 +153,58 @@ class PDFGenerator:
             logger.warning("DejaVu Sans font not found. Arabic text may not render correctly. Consider installing dejavu-fonts package.")
             self.arabic_font_name = 'Helvetica'  # Fallback (may have Arabic issues)
     
+    def _convert_arabic_numerals_to_english(self, text: str) -> str:
+        """Convert Arabic-Indic numerals (٠١٢٣٤٥٦٧٨٩) to English numerals (0123456789)."""
+        arabic_to_english = {
+            '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+            '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+            '٫': '.', '٬': ','  # Arabic decimal separator and thousands separator
+        }
+        result = text
+        for arabic, english in arabic_to_english.items():
+            result = result.replace(arabic, english)
+        return result
+    
+    def _format_number_english(self, value: Any) -> str:
+        """Format a number to English numerals with proper formatting."""
+        if value is None:
+            return "0"
+        try:
+            num = float(value)
+            # Format with thousands separator and 2 decimal places
+            formatted = f"{num:,.2f}"
+            # Ensure all digits are English (in case of any Arabic numerals)
+            return self._convert_arabic_numerals_to_english(formatted)
+        except (ValueError, TypeError):
+            return str(value)
+    
+    def _process_arabic_text(self, text: str) -> str:
+        """
+        Process Arabic text with reshaping (NO bidi - we use LTR layout).
+        Returns the processed text ready for rendering.
+        
+        Note: We don't use get_display() anymore since we switched to LTR layout.
+        Arabic text will render correctly with just reshaping in LTR context.
+        """
+        if not text:
+            return text
+
+        # Check if text contains Arabic characters
+        has_arabic = any('\u0600' <= char <= '\u06FF' for char in str(text))
+        if not has_arabic:
+            return text
+
+        reshaper_available, bidi_available = self._check_arabic_dependencies()
+
+        # Only reshape Arabic text, don't apply bidi algorithm (we use LTR layout)
+        if reshaper_available:
+            import arabic_reshaper
+            reshaped_text = arabic_reshaper.reshape(text)
+            return reshaped_text
+        else:
+            logger.warning(f"Arabic text cannot be processed properly: '{text[:30]}...'")
+            return text
+
     def _create_table_cell(self, text: str, font_name: str = None, font_size: int = 8, alignment: str = 'LEFT') -> Any:
         """
         Create a table cell content - use Paragraph for text, plain string for simple content.
@@ -130,6 +219,9 @@ class PDFGenerator:
         # For Arabic text or if font is specified, use Paragraph
         if has_arabic or font_name:
             font_to_use = font_name or self.arabic_font_name
+            # Replace newlines with <br/> for ReportLab Paragraphs
+            text = text.replace('\n', '<br/>')
+            
             align_enum = TA_RIGHT if has_arabic else (TA_LEFT if alignment == 'LEFT' else TA_CENTER if alignment == 'CENTER' else TA_RIGHT)
             
             # Create a style for this cell with RTL support for Arabic
@@ -139,7 +231,7 @@ class PDFGenerator:
                 'fontName': font_to_use,
                 'fontSize': font_size,
                 'alignment': align_enum,
-                'leading': font_size * 1.2,  # Line spacing
+                'leading': font_size * 1.3,  # Line spacing
                 'spaceBefore': 0,
                 'spaceAfter': 0
             }
@@ -150,29 +242,7 @@ class PDFGenerator:
             cell_style = ParagraphStyle(**style_kwargs)
             
             # Process Arabic text with proper reshaping and bidirectional text handling
-            processed_text = text
-            if has_arabic:
-                try:
-                    import arabic_reshaper
-                    from bidi.algorithm import get_display
-                    
-                    # Step 1: Reshape Arabic characters to their proper forms based on position
-                    # This is necessary for correct character rendering (isolated, initial, medial, final forms)
-                    reshaped_text = arabic_reshaper.reshape(text)
-                    
-                    # Step 2: Apply bidirectional algorithm for proper RTL text display
-                    # This ensures Arabic text flows correctly from right to left
-                    processed_text = get_display(reshaped_text)
-                except ImportError as e:
-                    # If libraries not installed, try arabic_reshaper alone
-                    try:
-                        import arabic_reshaper
-                        processed_text = arabic_reshaper.reshape(text)
-                        logger.warning(f"python-bidi not installed: {e}. Arabic text may not display with correct direction.")
-                    except ImportError:
-                        # arabic-reshaper not installed, use text as-is
-                        logger.warning(f"arabic-reshaper not installed: {e}. Arabic characters may not render with correct shapes.")
-                        pass
+            processed_text = self._process_arabic_text(text) if has_arabic else text
             
             return Paragraph(processed_text, cell_style)
         
@@ -260,59 +330,87 @@ class PDFGenerator:
             # Fallback: empty structure
             return {"currency": "EGP"}
     
+    def _create_paragraph(self, text: str, style) -> Paragraph:
+        """Create a Paragraph with automatic Arabic text processing."""
+        processed_text = self._process_arabic_text(text)
+        return Paragraph(processed_text, style)
+
     def generate_quotation_pdf(self, quotation: Quotation, quotation_data: Optional[QuotationData]) -> BytesIO:
         """Generate PDF quotation document with bilingual support"""
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         story = []
-        
+
         # Detect language
         detected_lang = detect_language(quotation.project_description)
         is_arabic = detected_lang == "ar"
-        
-        # Title (bilingual)
-        title = "عرض سعر البناء / CONSTRUCTION QUOTATION" if is_arabic else "CONSTRUCTION QUOTATION"
-        story.append(Paragraph(title, self.styles['CustomTitle']))
+
+        # Title (bilingual) - process Arabic text
+        title = "CONSTRUCTION QUOTATION / عرض سعر البناء" if is_arabic else "CONSTRUCTION QUOTATION"
+        story.append(self._create_paragraph(title, self.styles['CustomTitle']))
         story.append(Spacer(1, 0.2 * inch))
-        
+
         # Quotation details (bilingual labels)
-        id_label = "رقم العرض:" if is_arabic else "Quotation ID:"
-        date_label = "التاريخ:" if is_arabic else "Date:"
-        story.append(Paragraph(f"<b>{id_label}</b> {quotation.id}", self.styles['BodyText']))
-        story.append(Paragraph(f"<b>{date_label}</b> {quotation.created_at.strftime('%B %d, %Y')}", self.styles['BodyText']))
+        id_label = self._process_arabic_text("رقم العرض:") if is_arabic else "Quotation ID:"
+        date_label = self._process_arabic_text("التاريخ:") if is_arabic else "Date:"
+        story.append(self._create_paragraph(f"<b>{id_label}</b> {quotation.id}", self.styles['BodyText']))
+        story.append(self._create_paragraph(f"<b>{date_label}</b> {quotation.created_at.strftime('%B %d, %Y')}", self.styles['BodyText']))
         story.append(Spacer(1, 0.3 * inch))
-        
+
         # Project summary
-        summary_label = "ملخص المشروع" if is_arabic else "PROJECT SUMMARY"
-        desc_label = "الوصف:" if is_arabic else "Description:"
-        story.append(Paragraph(summary_label, self.styles['SectionHeading']))
-        story.append(Paragraph(f"<b>{desc_label}</b> {quotation.project_description}", self.styles['BodyText']))
-        
+        summary_label = self._process_arabic_text("ملخص المشروع") if is_arabic else "PROJECT SUMMARY"
+        story.append(self._create_paragraph(summary_label, self.styles['SectionHeading']))
+
+        # Process project description - LTR layout (Arabic text will render correctly with reshaping)
+        if is_arabic:
+            # For Arabic: process the full line together
+            full_desc_line = f"<b>الوصف:</b> {quotation.project_description}"
+            story.append(self._create_paragraph(full_desc_line, self.styles['BodyText']))
+        else:
+            story.append(self._create_paragraph(f"<b>Description:</b> {quotation.project_description}", self.styles['BodyText']))
+
         if quotation.location:
-            loc_label = "الموقع:" if is_arabic else "Location:"
-            story.append(Paragraph(f"<b>{loc_label}</b> {quotation.location}", self.styles['BodyText']))
+            loc_label = self._process_arabic_text("الموقع:") if is_arabic else "Location:"
+            story.append(self._create_paragraph(f"<b>{loc_label}</b> {quotation.location}", self.styles['BodyText']))
         if quotation.zip_code:
-            zip_label = "الرمز البريدي:" if is_arabic else "Zip Code:"
-            story.append(Paragraph(f"<b>{zip_label}</b> {quotation.zip_code}", self.styles['BodyText']))
+            zip_label = self._process_arabic_text("الرمز البريدي:") if is_arabic else "Zip Code:"
+            story.append(self._create_paragraph(f"<b>{zip_label}</b> {quotation.zip_code}", self.styles['BodyText']))
         if quotation.project_type:
             project_type_label = quotation.project_type.value.replace('_', ' ').title()
-            type_label = "نوع المشروع:" if is_arabic else "Project Type:"
-            story.append(Paragraph(f"<b>{type_label}</b> {project_type_label}", self.styles['BodyText']))
+            type_label = self._process_arabic_text("نوع المشروع:") if is_arabic else "Project Type:"
+            story.append(self._create_paragraph(f"<b>{type_label}</b> {project_type_label}", self.styles['BodyText']))
         if quotation.timeline:
-            timeline_label = "الجدول الزمني:" if is_arabic else "Timeline:"
-            story.append(Paragraph(f"<b>{timeline_label}</b> {quotation.timeline}", self.styles['BodyText']))
-        
+            timeline_label = self._process_arabic_text("الجدول الزمني:") if is_arabic else "Timeline:"
+            story.append(self._create_paragraph(f"<b>{timeline_label}</b> {quotation.timeline}", self.styles['BodyText']))
+
         story.append(Spacer(1, 0.3 * inch))
-        
+
         # Cost breakdown
         if quotation_data and quotation_data.cost_breakdown:
-            breakdown_label = "تفاصيل التكلفة" if is_arabic else "COST BREAKDOWN"
-            story.append(Paragraph(breakdown_label, self.styles['SectionHeading']))
-            
-            total_cost = quotation_data.total_cost or 0.0
+            breakdown_label = self._process_arabic_text("تفاصيل التكلفة") if is_arabic else "COST BREAKDOWN"
+            story.append(self._create_paragraph(breakdown_label, self.styles['SectionHeading']))
             
             # Normalize cost_breakdown (handle both list and dict formats)
-            cost_breakdown = self._normalize_cost_breakdown(quotation_data.cost_breakdown, total_cost)
+            # Use the stored total_cost initially, but we'll recalculate from subtotals
+            initial_total_cost = quotation_data.total_cost or 0.0
+            cost_breakdown = self._normalize_cost_breakdown(quotation_data.cost_breakdown, initial_total_cost)
+            
+            # Recalculate total from cost_breakdown subtotals to ensure accuracy
+            total_cost = 0.0
+            if "materials" in cost_breakdown:
+                total_cost += cost_breakdown["materials"].get("subtotal", 0)
+            if "labor" in cost_breakdown:
+                total_cost += cost_breakdown["labor"].get("subtotal", 0)
+            if "permits_and_fees" in cost_breakdown:
+                total_cost += cost_breakdown["permits_and_fees"].get("subtotal", 0)
+            if "contingency" in cost_breakdown:
+                total_cost += cost_breakdown["contingency"].get("subtotal", 0)
+            if "markup" in cost_breakdown:
+                total_cost += cost_breakdown["markup"].get("subtotal", 0)
+            
+            # Fallback to stored value if calculation is zero
+            if total_cost == 0.0:
+                total_cost = initial_total_cost
             
             # Get currency symbol
             currency = cost_breakdown.get("currency", "EGP")
@@ -324,48 +422,63 @@ class PDFGenerator:
                 mat_items = materials.get("items", [])
                 
                 if mat_items:
-                    mat_label = "1. المواد / MATERIALS" if is_arabic else "1. MATERIALS"
-                    story.append(Paragraph(mat_label, self.styles['SectionHeading']))
-                    
+                    mat_label = "1. MATERIALS / المواد" if is_arabic else "1. MATERIALS"
+                    story.append(self._create_paragraph(mat_label, self.styles['SectionHeading']))
+
                     # Material items table with item numbers and detailed descriptions
-                    # Create headers as Paragraph objects for Arabic text
+                    # Always use LTR layout for consistency
                     header_font = f'{self.arabic_font_name}-Bold' if self.arabic_font_name == 'DejaVuSans' else 'Helvetica-Bold'
-                    header_texts = ["#", "Item Description / الوصف", "Qty.", "Unit / الوحدة", f"Unit Price ({currency_symbol})", f"Total ({currency_symbol})"] if is_arabic else ["#", "Item Description", "Qty.", "Unit", f"Unit Price ({currency_symbol})", f"Total ({currency_symbol})"]
+
+                    # LTR order: #, Description, Qty, Unit, Unit Price, Total
+                    if is_arabic:
+                        header_texts = ["#", "الوصف", "الكمية", "الوحدة", f"سعر الوحدة ({currency_symbol})", f"الإجمالي ({currency_symbol})"]
+                    else:
+                        header_texts = ["#", "Item Description", "Qty.", "Unit", f"Unit Price ({currency_symbol})", f"Total ({currency_symbol})"]
+
                     headers = [self._create_table_cell(h, header_font, 10, 'CENTER') if any('\u0600' <= char <= '\u06FF' for char in h) else h for h in header_texts]
                     mat_data = [headers]
-                    
+
                     for idx, item in enumerate(mat_items, 1):
                         unit = item.get("unit", "unit")
                         quantity = item.get("quantity", 0)
-                        # Format quantity - show decimal only if needed
-                        qty_str = f"{quantity:.0f}" if quantity == int(quantity) else f"{quantity:.2f}"
-                        
+                        # Format quantity - always use English numerals
+                        qty_str = self._format_number_english(quantity) if quantity != int(quantity) else self._format_number_english(int(quantity))
+
                         # Use detailed description if available, otherwise use name
                         description = item.get("description", item.get("name", ""))
+
+                        # LTR order: #, Description, Qty, Unit, Unit Price, Total
+                        unit_price = item.get('unit_cost', item.get('unit_price', 0))
+                        total_cost = item.get('cost', item.get('total', 0))
                         
-                        # Use Paragraph objects for Arabic text, plain strings for simple text
-                        mat_data.append([
+                        row_data = [
                             str(idx),
-                            self._create_table_cell(description, self.arabic_font_name, 8, 'LEFT'),  # Description as Paragraph if Arabic
-                            qty_str,  # Numbers as plain string
-                            unit,  # Unit as plain string
-                            f"{item.get('unit_cost', 0):,.2f}",  # Numbers as plain string
-                            f"{item.get('cost', 0):,.2f}"  # Numbers as plain string
-                        ])
+                            self._create_table_cell(description, self.arabic_font_name, 8, 'LEFT'),
+                            qty_str,
+                            unit,
+                            self._format_number_english(unit_price),
+                            self._format_number_english(total_cost)
+                        ]
+                        mat_data.append(row_data)
                     
-                    # Add subtotal row
+                    # Add subtotal row - LTR format
                     mat_subtotal = materials.get('subtotal', 0)
+                    if is_arabic:
+                        subtotal_label = self._process_arabic_text("المجموع:")
+                    else:
+                        subtotal_label = "Subtotal:"
                     mat_data.append([
-                        "", "", "", "", "<b>Subtotal:</b>", f"<b>{mat_subtotal:,.2f}</b>"
+                        "", "", "", "", subtotal_label, self._format_number_english(mat_subtotal)
                     ])
-                    
-                    # Wider description column to accommodate detailed Arabic descriptions
-                    # Total page width ~8.5 inch, minus margins leaves ~7.5 inch for content
+
+                    # LTR column widths
                     mat_table = Table(mat_data, colWidths=[0.3*inch, 3.5*inch, 0.5*inch, 0.6*inch, 0.9*inch, 1*inch])
+                    
+                    # LTR table style
                     mat_table.setStyle(TableStyle([
-                        # Header row
+                        # Header row - white text
                         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                         ('FONTNAME', (0, 0), (-1, 0), header_font),
                         ('FONTSIZE', (0, 0), (-1, 0), 10),
@@ -377,7 +490,7 @@ class PDFGenerator:
                         ('ALIGN', (2, 1), (-1, -2), 'RIGHT'),  # Numbers
                         ('FONTNAME', (0, 1), (-1, -2), self.arabic_font_name),
                         ('FONTSIZE', (0, 1), (0, -2), 8),  # Item number
-                        ('FONTSIZE', (1, 1), (1, -2), 8),  # Description (smaller for longer text)
+                        ('FONTSIZE', (1, 1), (1, -2), 8),  # Description
                         ('FONTSIZE', (2, 1), (-1, -2), 9),  # Other columns
                         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8f9fa')]),
                         ('TOPPADDING', (0, 1), (-1, -2), 6),
@@ -402,72 +515,84 @@ class PDFGenerator:
                 labor = cost_breakdown["labor"]
                 # Check if labor has items (from normalized list format) or trades (from dict format)
                 labor_items = labor.get("items", labor.get("trades", []))
-                
+
                 if labor_items:
-                    lab_label = "2. العمالة / LABOR" if is_arabic else "2. LABOR"
-                    story.append(Paragraph(lab_label, self.styles['SectionHeading']))
-                    
-                    # Labor items table - create headers as Paragraph objects for Arabic text
+                    lab_label = "2. LABOR / العمالة" if is_arabic else "2. LABOR"
+                    story.append(self._create_paragraph(lab_label, self.styles['SectionHeading']))
+
+                    # Labor items table - always use LTR layout
                     header_font = f'{self.arabic_font_name}-Bold' if self.arabic_font_name == 'DejaVuSans' else 'Helvetica-Bold'
-                    header_texts = ["#", "Trade / الحرفة", "Qty.", "Unit / الوحدة", f"Unit Rate ({currency_symbol})", f"Total ({currency_symbol})"] if is_arabic else ["#", "Trade", "Qty.", "Unit", f"Unit Rate ({currency_symbol})", f"Total ({currency_symbol})"]
+
+                    # LTR order: #, Trade, Qty, Unit, Unit Rate, Total
+                    if is_arabic:
+                        header_texts = ["#", "الحرفة", "الكمية", "الوحدة", f"سعر الوحدة ({currency_symbol})", f"الإجمالي ({currency_symbol})"]
+                    else:
+                        header_texts = ["#", "Trade", "Qty.", "Unit", f"Unit Rate ({currency_symbol})", f"Total ({currency_symbol})"]
+
                     headers = [self._create_table_cell(h, header_font, 10, 'CENTER') if any('\u0600' <= char <= '\u06FF' for char in h) else h for h in header_texts]
                     labor_data = [headers]
-                    
+
                     for idx, item in enumerate(labor_items, 1):
                         # Handle both item format and trade format
                         if "trade" in item:
                             name = item.get("trade", "").replace("_", " ").title()
                             quantity = item.get("hours", item.get("quantity", 0))
                             unit = "hours"
-                            unit_cost = item.get("rate", item.get("unit_cost", 0))
-                            cost = item.get("cost", 0)
+                            unit_cost = item.get("rate", item.get("unit_cost", item.get("unit_price", 0)))
+                            cost = item.get("cost", item.get("total", 0))
                         else:
                             name = item.get("name", "")
                             quantity = item.get("quantity", 0)
                             unit = item.get("unit", "unit")
                             unit_cost = item.get("unit_cost", 0)
                             cost = item.get("cost", 0)
-                        
+
                         # Use detailed description if available
                         description = item.get("description", name)
-                        
-                        qty_str = f"{quantity:.0f}" if quantity == int(quantity) else f"{quantity:.2f}"
-                        
-                        # Use Paragraph objects for Arabic text
+
+                        # Format quantity - always use English numerals
+                        qty_str = self._format_number_english(quantity) if quantity != int(quantity) else self._format_number_english(int(quantity))
+
+                        # LTR order: #, Trade, Qty, Unit, Unit Rate, Total
                         labor_data.append([
                             str(idx),
-                            self._create_table_cell(description, self.arabic_font_name, 8, 'LEFT'),  # Description as Paragraph if Arabic
-                            qty_str,  # Numbers as plain string
-                            unit,  # Unit as plain string
-                            f"{unit_cost:,.2f}",  # Numbers as plain string
-                            f"{cost:,.2f}"  # Numbers as plain string
+                            self._create_table_cell(description, self.arabic_font_name, 8, 'LEFT'),
+                            qty_str,
+                            unit,
+                            self._format_number_english(unit_cost),
+                            self._format_number_english(cost)
                         ])
-                    
-                    # Add subtotal row
+
+                    # Add subtotal row - LTR format
                     labor_subtotal = labor.get('subtotal', 0)
+                    if is_arabic:
+                        subtotal_label = self._process_arabic_text("المجموع:")
+                    else:
+                        subtotal_label = "Subtotal:"
                     labor_data.append([
-                        "", "", "", "", "<b>Subtotal:</b>", f"<b>{labor_subtotal:,.2f}</b>"
+                        "", "", "", "", subtotal_label, self._format_number_english(labor_subtotal)
                     ])
-                    
-                    # Wider description column to accommodate detailed Arabic descriptions
-                    # Total page width ~8.5 inch, minus margins leaves ~7.5 inch for content
+
+                    # LTR column widths
                     labor_table = Table(labor_data, colWidths=[0.3*inch, 3.5*inch, 0.5*inch, 0.6*inch, 0.9*inch, 1*inch])
+
+                    # LTR table style with white headers
                     labor_table.setStyle(TableStyle([
-                        # Header row
+                        # Header row - white text
                         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, 0), f'{self.arabic_font_name}-Bold' if self.arabic_font_name == 'DejaVuSans' else 'Helvetica-Bold'),
+                        ('FONTNAME', (0, 0), (-1, 0), header_font),
                         ('FONTSIZE', (0, 0), (-1, 0), 10),
                         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
                         ('TOPPADDING', (0, 0), (-1, 0), 10),
                         # Data rows
                         ('ALIGN', (0, 1), (0, -2), 'CENTER'),  # Item #
-                        ('ALIGN', (1, 1), (1, -2), 'LEFT'),    # Description
+                        ('ALIGN', (1, 1), (1, -2), 'LEFT'),    # Trade
                         ('ALIGN', (2, 1), (-1, -2), 'RIGHT'),  # Numbers
                         ('FONTNAME', (0, 1), (-1, -2), self.arabic_font_name),
                         ('FONTSIZE', (0, 1), (0, -2), 8),  # Item number
-                        ('FONTSIZE', (1, 1), (1, -2), 8),  # Description (smaller for longer text)
+                        ('FONTSIZE', (1, 1), (1, -2), 8),  # Trade description
                         ('FONTSIZE', (2, 1), (-1, -2), 9),  # Other columns
                         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8f9fa')]),
                         ('TOPPADDING', (0, 1), (-1, -2), 6),
@@ -490,8 +615,8 @@ class PDFGenerator:
             story.append(Spacer(1, 0.2 * inch))
             
             # Summary section
-            summary_label = "3. ملخص التكلفة / COST SUMMARY" if is_arabic else "3. COST SUMMARY"
-            story.append(Paragraph(summary_label, self.styles['SectionHeading']))
+            summary_label = "3. COST SUMMARY / ملخص التكلفة" if is_arabic else "3. COST SUMMARY"
+            story.append(self._create_paragraph(summary_label, self.styles['SectionHeading']))
             
             # Build summary table
             summary_data = []
@@ -501,47 +626,50 @@ class PDFGenerator:
                 mat_sub = cost_breakdown["materials"].get("subtotal", 0)
                 mat_pct = cost_breakdown["materials"].get("percentage", 0)
                 mat_label = self._create_table_cell("Materials / المواد", self.arabic_font_name, 10, 'LEFT')
-                summary_data.append([mat_label, f"{currency_symbol} {mat_sub:,.2f}", f"{mat_pct:.1f}%"])
+                summary_data.append([mat_label, f"{currency_symbol} {self._format_number_english(mat_sub)}", f"{self._format_number_english(mat_pct)}%"])
             
             # Labor subtotal - use Paragraph for Arabic labels
             if "labor" in cost_breakdown:
                 lab_sub = cost_breakdown["labor"].get("subtotal", 0)
                 lab_pct = cost_breakdown["labor"].get("percentage", 0)
                 lab_label = self._create_table_cell("Labor / العمالة", self.arabic_font_name, 10, 'LEFT')
-                summary_data.append([lab_label, f"{currency_symbol} {lab_sub:,.2f}", f"{lab_pct:.1f}%"])
+                summary_data.append([lab_label, f"{currency_symbol} {self._format_number_english(lab_sub)}", f"{self._format_number_english(lab_pct)}%"])
             
             # Other costs
             if "permits_and_fees" in cost_breakdown:
                 permits = cost_breakdown["permits_and_fees"]
                 permits_sub = permits.get('subtotal', 0)
                 permits_pct = permits.get('percentage', 0)
-                summary_data.append(["Permits & Fees / التصاريح والرسوم", f"{currency_symbol} {permits_sub:,.2f}", f"{permits_pct:.1f}%"])
-            
+                permits_label = self._create_table_cell("Permits & Fees / التصاريح والرسوم", self.arabic_font_name, 10, 'LEFT')
+                summary_data.append([permits_label, f"{currency_symbol} {self._format_number_english(permits_sub)}", f"{self._format_number_english(permits_pct)}%"])
+
             if "contingency" in cost_breakdown:
                 contingency = cost_breakdown["contingency"]
                 cont_sub = contingency.get('subtotal', 0)
                 cont_pct = contingency.get('percentage', 0)
-                summary_data.append([f"Contingency ({contingency.get('percentage', 0):.0f}%) / الطوارئ", f"{currency_symbol} {cont_sub:,.2f}", f"{cont_pct:.1f}%"])
-            
+                cont_label = self._create_table_cell(f"Contingency ({contingency.get('percentage', 0):.0f}%) / الطوارئ", self.arabic_font_name, 10, 'LEFT')
+                summary_data.append([cont_label, f"{currency_symbol} {self._format_number_english(cont_sub)}", f"{self._format_number_english(cont_pct)}%"])
+
             if "markup" in cost_breakdown:
                 markup = cost_breakdown["markup"]
                 markup_sub = markup.get('subtotal', 0)
                 markup_pct = markup.get('percentage', 0)
-                summary_data.append([f"Markup ({markup.get('percentage', 0):.0f}%) / هامش الربح", f"{currency_symbol} {markup_sub:,.2f}", f"{markup_pct:.1f}%"])
+                markup_label = self._create_table_cell(f"Markup ({markup.get('percentage', 0):.0f}%) / هامش الربح", self.arabic_font_name, 10, 'LEFT')
+                summary_data.append([markup_label, f"{currency_symbol} {self._format_number_english(markup_sub)}", f"{self._format_number_english(markup_pct)}%"])
             
             # Add headers and total - use Paragraph for Arabic headers
             header_font = f'{self.arabic_font_name}-Bold' if self.arabic_font_name == 'DejaVuSans' else 'Helvetica-Bold'
             header_texts = ["Category / الفئة", f"Amount ({currency_symbol})", "Percentage / النسبة"] if is_arabic else ["Category", f"Amount ({currency_symbol})", "Percentage"]
             summary_headers = [self._create_table_cell(h, header_font, 11, 'CENTER') if any('\u0600' <= char <= '\u06FF' for char in h) else h for h in header_texts]
             summary_table_data = [summary_headers] + summary_data
-            total_label = self._create_table_cell("TOTAL / الإجمالي", f'{self.arabic_font_name}-Bold' if self.arabic_font_name == 'DejaVuSans' else 'Helvetica-Bold', 12, 'CENTER') if is_arabic else "<b>TOTAL</b>"
-            summary_table_data.append([total_label, f"<b>{currency_symbol} {total_cost:,.2f}</b>", "<b>100.0%</b>"])
+            total_label = self._create_table_cell("TOTAL / الإجمالي", f'{self.arabic_font_name}-Bold' if self.arabic_font_name == 'DejaVuSans' else 'Helvetica-Bold', 12, 'CENTER') if is_arabic else "TOTAL"
+            summary_table_data.append([total_label, f"{currency_symbol} {self._format_number_english(total_cost)}", "100.0%"])
             
             summary_table = Table(summary_table_data, colWidths=[3.5*inch, 1.5*inch, 1.2*inch])
             summary_table.setStyle(TableStyle([
-                # Header row
+                # Header row - white text
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495e')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), f'{self.arabic_font_name}-Bold' if self.arabic_font_name == 'DejaVuSans' else 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 11),
@@ -587,12 +715,12 @@ class PDFGenerator:
         story.append(PageBreak())
         
         # Terms and conditions - Egyptian market specific
-        terms_label = "الشروط والأحكام / TERMS AND CONDITIONS" if is_arabic else "TERMS AND CONDITIONS"
-        story.append(Paragraph(terms_label, self.styles['SectionHeading']))
-        
+        terms_label = "TERMS AND CONDITIONS / الشروط والأحكام" if is_arabic else "TERMS AND CONDITIONS"
+        story.append(self._create_paragraph(terms_label, self.styles['SectionHeading']))
+
         if is_arabic:
             terms = [
-                "صالحية العرض: هذا العرض صالح لمدة 30 يوماً من تاريخ الإصدار.",
+                "صلاحية العرض: هذا العرض صالح لمدة 30 يوماً من تاريخ الإصدار.",
                 "الأسعار: جميع الأسعار تقديرية وقابلة للتغيير حسب المواصفات النهائية للمشروع وظروف السوق.",
                 "التكاليف النهائية: قد تختلف التكاليف النهائية حسب ظروف الموقع وتوفر المواد وتقلبات السوق.",
                 "التصاريح: هذا العرض لا يشمل التصاريح الرسمية ما لم يتم ذكره صراحة.",
@@ -618,9 +746,11 @@ class PDFGenerator:
                 "Inspection & Approval: All works are subject to inspection by the supervising engineer and relevant authorities before final delivery.",
                 "Delivery: Delivery includes completion certificate from the supervising engineer and occupancy certificate from relevant authorities.",
             ]
-        
+
         for term in terms:
-            story.append(Paragraph(f"• {term}", self.styles['BodyText']))
+            # Process Arabic text in terms - LTR layout
+            term_text = f"• {term}"
+            story.append(self._create_paragraph(term_text, self.styles['BodyText']))
         
         story.append(Spacer(1, 0.3 * inch))
         footer_style = ParagraphStyle(

@@ -150,7 +150,7 @@ class MemoryManager:
                 locations[location] = locations.get(location, 0) + 1
             
             # Collect sizes
-            size = quotation.get("size_sqm") or quotation.get("size_sqft")
+            size = quotation.get("size_sqm")
             if size:
                 sizes.append(size)
             

@@ -21,6 +21,7 @@ services:
     volumes:
       - ./backend:/app
       - ./ai_models/embedding_model:/app/ai_models/embedding_model
+      - ./data:/app/data
     ports:
       - "8001:8000"
     environment:

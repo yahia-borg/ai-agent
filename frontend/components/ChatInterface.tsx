@@ -5,6 +5,7 @@ import { Send, Bot, User, Paperclip, X, Image as ImageIcon } from 'lucide-react'
 import axios from 'axios';
 import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
+import DownloadButtons from './DownloadButtons';
 import { detectLanguage } from '@/utils/language';
 
 interface Attachment {
@@ -35,6 +36,7 @@ export default function ChatInterface() {
     const [quotationId, setQuotationId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textInputRef = useRef<HTMLInputElement>(null);
     const assistantMessageRef = useRef<number>(-1);
 
     // Generate new session ID
@@ -255,6 +257,10 @@ export default function ChatInterface() {
             assistantMessageRef.current = -1;
         } finally {
             setIsLoading(false);
+            // Auto-focus the input field after message is sent
+            setTimeout(() => {
+                textInputRef.current?.focus();
+            }, 100);
         }
     };
 
@@ -277,6 +283,19 @@ export default function ChatInterface() {
                     <span>New Chat</span>
                 </button>
             </div>
+
+            {/* Quotation Status Banner */}
+            {quotationId && (
+                <div className="bg-blue-50 dark:bg-slate-800/50 border-b border-blue-100 dark:border-slate-700 px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                            Quotation Ready: {quotationId.substring(0, 12)}...
+                        </span>
+                    </div>
+                    <DownloadButtons quotationId={quotationId} />
+                </div>
+            )}
 
             {/* Messages - MD3 spacing: 24dp padding, 16dp gap */}
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
@@ -328,13 +347,18 @@ export default function ChatInterface() {
                         <Paperclip className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                     </label>
                     <input
+                        ref={textInputRef}
                         type="text"
+                        dir="auto"
+                        inputMode="text"
+                        lang="auto"
                         className="flex-1 px-5 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 outline-none transition-all duration-200 text-base"
                         placeholder="Describe your construction project..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                         disabled={isLoading}
+                        autoFocus
                     />
                     <button
                         onClick={sendMessage}

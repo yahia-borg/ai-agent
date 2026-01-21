@@ -103,29 +103,6 @@ Pres_capmas@capmas.gov.eg
 تصميم / ادارة تصميم المطبوعات و الرسم _العلاقات العامة
 الادارة المركزية لشئون مكتب رئيس الجهاز
 طبع بمطبعة الجهاز المركزي للتعبئة العامة و الإحصاء",compressed.md,1
-Preface (April 2025),"Central Agency for Public Mobilization And Statistics is the official & key source of disseminating and providing data & information for the State's Agencies, Authorities, Business Communitites, NGOs, Research Centers and Researchers & Academics students, which contributes in planning, development , evaluation , preparing studies and policies designing & decision making .
-CAPMAS keens to gather all the important data & indicators on Social – Economic and Demographic fields in one monthly publication providing the latest data in these fields in a simple form supported with graphs.
-CAPMAS is pleased to receive any comments or suggestions to develop such important publication and appreciates data users continue reviewing publication and specilaized studies that are issued periodically.
-Visit CAPMAS Website:www.capmas.gov.eg
-Best Regards,,,
-Gen . / Khairat Mohamed Barakat
-CAPMAS President
-محـتــوىـات النشــــــــــرة (أبريل ٢٠٢٥)
-Bulletin Contents (April 2025)
-Informatics monthly statistical bulletin المعلوماتية نشــــرة إحصائية شهرية
-(تابع) محتويات النشـرة (أبريل ٢٠٢٥)
-Cont. Bulletin Contents (April 2025)
-Informatics monthly statistical bulletin المعلوماتية نشـرة إحصائيـة شهریـة
-الناتـج الحــلى :إجمالى قيمة ما أنتجه المجتمع من سلع وخدمات مستبعد منه قيمة المستلزمات السلعية والخدمية مقوما بالأسعار الجارية.
-الناتج المحلي الإجمالي بتكالفة عوامل الإنتاج بالأسعار الجارية = الناتج المحلي الإجمالي بسعر السوق – صافي الضرائب غير المباشرة = مجموع الناتج المحلي (القيمة المضافة) للقطاعات في الاقتصاد القومى.
-الناتج المحلي الإجمالي بسعر السوق = الإستهلاك الحكومى + الإستهلاك الخاص + الاستثمار العام + الإستثمار الخاص+ الصادرات السلعية والخدمية – الواردات السلعية والخدمية.
-معدل الإدخار المحلي هو قيمة الإدخار المحلي منسوبا إلى الناتج المحلي الإجمالي
-الرقم القياسى للصناعات التحويلية والاستخراجية :هو مؤشر قصير المدى يظهر التغيرات التى تحدث فى قيم انتاج الصناعات التحويلية والاستخراجية خلال شهر مقارنة بشهر سنة الأساس (٢٠١٣/٢٠١٢).
-الأرقـام القياسـية لأسعار المستهلكين :تصور التغير فى مستويات الأسعار للسلع والخدمات فى أسواق التجزئة كأحد المؤشرات الهامة لقياس التضخم كما يمثل أحد الأدوات الضرورية فى حساب الدخل القومى بالأسعار المثبتة وكذا قياس التغير فى مستويات الأجور الحقيقية وهى الأجور الفعلية بعد تخليصها من أثر تغيرات الأسعار.
-الرقــــم القياسى لأسعار الانتاجين :أسعار المنتجين هى الأسعار الأساسية التى تدفع للمنتجين المحليين مقابل السلع والخدمات التى ينتجونها عند التسليم من محل الإنتاج، ويعبـر عن قياس التغيرات فى مستويات أسعار المنتجين للسلع والخدمات ويعتبر أحد المؤشرات الاقتصادية قصيرة المدى للتضخم.
-ويتم الإعتماد عليه من قبل العديد من المنظمات الدولية مثل صندوق النقد الدولى والبنك المركزى المصرى للمقارنة والرقابة الاقتصادية وتقييم السياسات النقدية.
-المعلوماتية نشــــرة إحصائـــة شهريـــــة
-page_number-I-/page_number",data4.md,1
 Comprehensive Price Breakdown for Residential & Commercial Buildings,"Last Updated:December 2025Currency:Egyptian Pound (EGP)Note:Prices are subject to market fluctuations due to inflation, currency exchange rates, and material availability.
 Construction Cost Summary by StageBuilding Materials PricesLabor CostsResidential Buildings - ApartmentsResidential Buildings - VillasCommercial BuildingsConstruction Stages BreakdownRegional Price Variations",egypt-construction-costs-2025.md,1
 Cost Per Square Meter by Construction Stage (2025),Note:These are average construction costs. Land cost is NOT included.,egypt-construction-costs-2025.md,1
@@ -592,100 +569,154 @@ Informatics monthly statistical bulletin المعلوماتية نشـرة إح�
     ويتم الإعتماد عليه من قبل العديد من المنظمات الدولية مثل صندوق النقد الدولى والبنك المركزى المصرى للمقارنة والرقابة الاقتصادية وتقييم السياسات النقدية.
 page_number-I-/page_number
 المعلوماتية نشــــرة إحصائيـــة شهريـــــة",august_data.md,1
-Document Overview,"Purpose: Knowledge base for chatbot agent about construction finishing stages in EgyptScope: Residential and commercial building finishing processes following Egyptian Building CodesGoverning Authority: Housing and Building National Research Center (HBRC)Primary Legislation: Unified Building Law No. 119 of 2008Language: English with Arabic terminology referencesLast Updated: December 2025Version: 2.0 - Egypt Edition
-Egyptian Building Code FrameworkResidential Building Finishing StagesCommercial vs Residential Key DistinctionsComparative Finishing PhasesBuilding Permit Requirements in EgyptTechnical TerminologyEgyptian Code References",construction_finishing_knowledge_base_egypt.md,1
-Governing Bodies and Legislation,"Primary Authority: Housing and Building National Research Center (HBRC)
-- Established: 1954
-- Affiliation: Ministry of Housing, Utilities and Urban Development
-- Location: 87 El Tahrir St., Cairo, Egypt
-- Mandate: Development and issuance of building codes and construction standards
-Main Legislation:
--Unified Building Law No. 119 of 2008: Primary building regulation framework
--Ministerial Decree No. 144 of 2009: Procedures for issuing building permits and technical committee formations
--Updated Building Permit System (2024): Streamlined from 15 steps to 8 steps",construction_finishing_knowledge_base_egypt.md,1
-Key Egyptian Building Codes,"Structural Codes:
-1.ECP 203-2020: Egyptian Code for Design and Construction of Concrete Structures
-   - Latest version: 2020 (supersedes ECP 203-2007)
-   - Covers: Reinforced and prestressed concrete structures
-   - Based on: Limit states design method
-   - Reference: British standards and Canadian building codes
-ECP 201: Egyptian Code for Calculating Loads and ForcesLatest version: 2011 (versions: 1993, 2004, 2008, 2011)Covers: Dead loads, live loads, wind loads, seismic loadsBased on: Eurocode 8 framework for seismic designSeismic zones: Egypt divided into 6 seismic zones (PGA: 0.10g to 0.20g)ECP 205: Egyptian Code for Metal Structures and BridgesVersion: 2001Based on: International Building Code (IBC) and US standardsCovers: Steel construction using Allowable Stress Design (ASD)
-Seismic zones: Egypt divided into 6 seismic zones (PGA: 0.10g to 0.20g)
-ECP 205: Egyptian Code for Metal Structures and Bridges
-Specialized Codes:
--Green Building Code: Environmentally friendly construction standards
--Smart Cities Code: Parts One & Two for modern urban development
--Fire Protection Code: Building protection from fire hazards
--Accessibility Code: Rehabilitation of buildings for people with special needs
--Energy Rationalization Code: Energy use in residential and commercial buildings
--Sanitary Installations Code: Plumbing and sanitary systems
--Windows and Doors Code: Standards for openings and fixtures",construction_finishing_knowledge_base_egypt.md,1
-Material Standards,"Egyptian Standards (ES):
--ES 262-2/2015 & 2021: Steel reinforcement specifications
-  - Grades: B500DWR (highest grade, 17% steel savings in buildings)
-  - Compliance: International Standards ISO 6935-2/2007
-  - Properties: Minimum elongation 13%, cold bending and re-bending capability
-Concrete Standards:
-- Based on ECP 203-2020
-- Concrete mixes: C250, C350 grades
-- Quality control: Mandatory laboratory testing and field inspection",construction_finishing_knowledge_base_egypt.md,1
-Code Harmonization,"Egypt has harmonized over 3,400 standards with international practices:
--Engineering standards: 33% of harmonized codes
--Construction products: ~250 standards (25% mandatory)
--Cement standards: Aligned with EN 197-1 (European standards)
--International alignment: Follows IBC (steel), British Standards (concrete/masonry), Eurocode 8 (seismic)",construction_finishing_knowledge_base_egypt.md,1
-1. Finishing from Red Brick Stage (التشطيب من على الطوب الأحمر - العظم),"Description: First and most comprehensive stage starting from bare concrete structure.
-Compliance Requirements:
+Phase 1: Finishing from Red Brick Stage (التشطيب من على الطوب الأحمر - العظم),"### 1. Finishing from Red Brick Stage (التشطيب من على الطوب الأحمر - العظم)
+
+**Description**: First and most comprehensive stage starting from bare concrete structure.
+
+**Compliance Requirements**:
 - Must follow ECP 203-2020 for concrete structures
 - Must comply with ECP 201 for loads and forces
 - Must obtain building permit before commencing work
-Sequential Steps:",construction_finishing_knowledge_base_egypt.md,1
-1.1 Planning (التخطيط),Define internal layout and room divisionsSubmit architectural drawings to local authorityEnsure compliance with zoning regulations (Unified Building Law No. 119/2008)Obtain approval from technological center,construction_finishing_knowledge_base_egypt.md,1
-1.2 Electrical and Plumbing (الكهرباء والسباكة),Follow Sanitary Installations CodeBreak walls for pipe routing (with structural engineer approval)Install water supply pipes (must meet Egyptian Standards)Install drainage and sewage pipesCreate electrical conduit pathwaysEstablish connection points for utility servicesAll work must be inspected by licensed engineer registered with Engineers' Syndicate,construction_finishing_knowledge_base_egypt.md,1
-1.3 Carpentry (النجارة),Install door frames (حلوق الأبواب) per Windows and Doors CodeInstall window frames (حلوق الشبابيك)Use approved materials meeting Egyptian StandardsQuality control inspection required,construction_finishing_knowledge_base_egypt.md,1
-1.4 Plastering (المحارة),Apply cement layer for wall levelingCreate smooth surfaces using guides and strings (بؤج وأوتار)Thickness and material composition per ECP standardsEnsure walls are plumb and levelQuality inspection by supervising engineer,construction_finishing_knowledge_base_egypt.md,1
-1.5 Gypsum Work (الجبس),Install cornices (الكرانيش)Create decorative ceiling features if specifiedAdd architectural ceiling detailsFollow fire protection code for ceiling materials,construction_finishing_knowledge_base_egypt.md,1
-1.6 Flooring (الأرضيات),Install ceramic tiles or porcelain meeting ES specificationsEnsure proper leveling and alignmentApply grout and sealantsAccessibility compliance where required,construction_finishing_knowledge_base_egypt.md,1
-1.7 Painting (الدهانات),Apply filler/putty (المعجون)Apply primer coat (البطانة)Apply final paint color meeting Green Building Code (if applicable)Complete after flooring installationUse eco-friendly materials where specified,construction_finishing_knowledge_base_egypt.md,1
-1.8 Final Finishing (التشطيب النهائي),"Install doors and windows (Windows and Doors Code compliance)Install lighting fixturesInstall final plumbing fixturesInstall electrical switches and outletsInstall kitchen appliances and fixturesFinal inspection by Ministry of Housing inspectorObtain occupancy certificate
-Timeline: 3-6 months for residential units (varies by size and complexity)
-Code Compliance Checkpoints:
+
+**Sequential Steps**:
+
+#### 1.1 Planning (التخطيط)
+- Define internal layout and room divisions
+- Submit architectural drawings to local authority
+- Ensure compliance with zoning regulations (Unified Building Law No. 119/2008)
+- Obtain approval from technological center
+
+#### 1.2 Electrical and Plumbing (الكهرباء والسباكة)
+- Follow Sanitary Installations Code
+- Break walls for pipe routing (with structural engineer approval)
+- Install water supply pipes (must meet Egyptian Standards)
+- Install drainage and sewage pipes
+- Create electrical conduit pathways
+- Establish connection points for utility services
+- All work must be inspected by licensed engineer registered with Engineers' Syndicate
+
+#### 1.3 Carpentry (النجارة)
+- Install door frames (حلوق الأبواب) per Windows and Doors Code
+- Install window frames (حلوق الشبابيك)
+- Use approved materials meeting Egyptian Standards
+- Quality control inspection required
+
+#### 1.4 Plastering (المحارة)
+- Apply cement layer for wall leveling
+- Create smooth surfaces using guides and strings (بؤج وأوتار)
+- Thickness and material composition per ECP standards
+- Ensure walls are plumb and level
+- Quality inspection by supervising engineer
+
+#### 1.5 Gypsum Work (الجبس)
+- Install cornices (الكرانيش)
+- Create decorative ceiling features if specified
+- Add architectural ceiling details
+- Follow fire protection code for ceiling materials
+
+#### 1.6 Flooring (الأرضيات)
+- Install ceramic tiles or porcelain meeting ES specifications
+- Ensure proper leveling and alignment
+- Apply grout and sealants
+- Accessibility compliance where required
+
+#### 1.7 Painting (الدهانات)
+- Apply filler/putty (المعجون)
+- Apply primer coat (البطانة)
+- Apply final paint color meeting Green Building Code (if applicable)
+- Complete after flooring installation
+- Use eco-friendly materials where specified
+
+#### 1.8 Final Finishing (التشطيب النهائي)
+- Install doors and windows (Windows and Doors Code compliance)
+- Install lighting fixtures
+- Install final plumbing fixtures
+- Install electrical switches and outlets
+- Install kitchen appliances and fixtures
+- Final inspection by Ministry of Housing inspector
+- Obtain occupancy certificate
+
+**Timeline**: 3-6 months for residential units (varies by size and complexity)
+
+**Code Compliance Checkpoints**:
 - Structural integrity verification (ECP 203-2020)
 - MEP systems inspection (licensed engineer)
 - Fire safety compliance check
 - Accessibility features verification (if required)
-- Final quality control inspection",construction_finishing_knowledge_base_egypt.md,1
-2. Finishing from Plastered Stage (التشطيب من على المحارة - نصف تشطيب),"Description: Plastering complete; focus on installations and surface finishes.
-Compliance Requirements:
+- Final quality control inspection
+
+---",construction_finishing_knowledge_base_egypt.md,1
+Phase 2: Finishing from Plastered Stage (التشطيب من على المحارة - نصف تشطيب),"### 2. Finishing from Plastered Stage (التشطيب من على المحارة - نصف تشطيب)
+
+**Description**: Plastering complete; focus on installations and surface finishes.
+
+**Compliance Requirements**:
 - Continuation of approved building permit
 - Supervision by licensed engineer (Engineers' Syndicate Law No. 66/1974)
 - Regular inspections by local authority
-Work Included:",construction_finishing_knowledge_base_egypt.md,1
-2.1 Electrical Work,Install wiring throughout unit (Egyptian electrical standards)Install electrical boxes (approved specifications)Install switches and outletsConnect lighting pointsInspection by Ministry of Housing or authorized inspector,construction_finishing_knowledge_base_egypt.md,1
-2.2 Plumbing Work,Install sinks and basins (ES specifications)Install bathtubs or shower unitsInstall toilets (water efficiency standards)Install final plumbing fixtures and accessoriesPressure testing and quality control,construction_finishing_knowledge_base_egypt.md,1
-2.3 Carpentry,Install doors and windows (if not previously installed)Install door hardware meeting security standardsFinal carpentry adjustmentsQuality inspection,construction_finishing_knowledge_base_egypt.md,1
-2.4 Flooring,"Install ceramic tiles, marble, or parquet flooring (ES approved)Complete flooring in all roomsInstall skirting boards if applicableEnsure accessibility compliance",construction_finishing_knowledge_base_egypt.md,1
-2.5 Painting,"Complete wall painting (النقاشة)Apply final finish to all wallsTouch-ups and quality checksGreen Building Code compliance (low VOC paints if required)
-Timeline: 2-3 months for residential units
-Inspection Requirements:
+
+**Work Included**:
+
+#### 2.1 Electrical Work
+- Install wiring throughout unit (Egyptian electrical standards)
+- Install electrical boxes (approved specifications)
+- Install switches and outlets
+- Connect lighting points
+- Inspection by Ministry of Housing or authorized inspector
+
+#### 2.2 Plumbing Work
+- Install sinks and basins (ES specifications)
+- Install bathtubs or shower units
+- Install toilets (water efficiency standards)
+- Install final plumbing fixtures and accessories
+- Pressure testing and quality control
+
+#### 2.3 Carpentry
+- Install doors and windows (if not previously installed)
+- Install door hardware meeting security standards
+- Final carpentry adjustments
+- Quality inspection
+
+#### 2.4 Flooring
+- Install ceramic tiles, marble, or parquet flooring (ES approved)
+- Complete flooring in all rooms
+- Install skirting boards if applicable
+- Ensure accessibility compliance
+
+#### 2.5 Painting
+- Complete wall painting (النقاشة)
+- Apply final finish to all walls
+- Touch-ups and quality checks
+- Green Building Code compliance (low VOC paints if required)
+
+**Timeline**: 2-3 months for residential units
+
+**Inspection Requirements**:
 - Mid-stage inspection by supervising engineer
 - MEP systems functionality test
 - Safety compliance verification
-- Documentation for occupancy certificate",construction_finishing_knowledge_base_egypt.md,1
-3. Turnkey Finishing (التشطيب الكامل - على المفتاح),"Description: Unit completely ready for occupancy with all systems operational.
-Compliance Requirements:
+- Documentation for occupancy certificate
+
+---",construction_finishing_knowledge_base_egypt.md,2
+Phase 3: Turnkey Finishing (التشطيب الكامل - على المفتاح),"### 3. Turnkey Finishing (التشطيب الكامل - على المفتاح)
+
+**Description**: Unit completely ready for occupancy with all systems operational.
+
+**Compliance Requirements**:
 - Final inspection by Ministry of Housing
 - Occupancy certificate issuance
 - Utility connections approval (requires building permit proof)
 - All code compliance documentation complete
-Characteristics:
+
+**Characteristics**:
 - Transitioned from concrete shell to fully livable space
 - All final finishes complete per approved plans
 - All systems operational and tested
 - Ready for immediate move-in
 - Warranty period begins
 - Compliance with Unified Building Law No. 119/2008
-What's Included:
+
+**What's Included**:
 - Complete electrical system with all fixtures
 - Complete plumbing system with all fixtures
 - All doors and windows installed and operational
@@ -696,21 +727,49 @@ What's Included:
 - All switches, outlets, and lighting functional
 - Fire safety equipment installed (if required)
 - Accessibility features (if required)
-Final Documentation:
+
+**Final Documentation**:
 - Completion certificate from supervising engineer
 - Occupancy permit from local authority
 - Utility connection approvals
 - Warranty documentation
 - As-built drawings
-Timeline: Immediate occupancy available upon certificate issuance",construction_finishing_knowledge_base_egypt.md,1
-Phase 1: From Red Brick/Shell Stage (من الطوب الأحمر),"Residential Buildings(Egyptian Context):
+
+**Timeline**: Immediate occupancy available upon certificate issuance
+
+---
+
+## Commercial vs Residential Key Distinctions
+
+### Comparison Table - Egyptian Context
+
+| Feature | Residential Buildings | Commercial Buildings |
+|---------|----------------------|---------------------|
+| **Primary Goal** | Comfort, aesthetics, personalized living spaces | Functionality, durability, safety, business operations, brand identity |
+| **Governing Codes** | Unified Building Law No. 119/2008; ECP 203-2020; ECP 201; Local ordinances | Stricter compliance with all ECPs; Fire Protection Code (mandatory); Accessibility Code (mandatory); Higher safety standards |
+| **Building Permit** | Simplified 8-step process (26-40 days); Standard fees: EGP 10-100/m² | More complex approval; Higher fees; Additional safety reviews; Technical committee inspections |
+| **Materials** | Lighter materials; wood/steel framing; standard fixtures; ES-compliant materials; Cost-effectiveness focus | Heavy-duty materials: steel, reinforced concrete (ECP 205); Large glass panels; High-durability flooring (commercial-grade); Heavy traffic design |
+| **MEP Systems** | Standard residential systems; Basic capacity; Egyptian Standards compliance | High-capacity systems; Specialized equipment; Extensive fire suppression (mandatory); Complex HVAC; Redundant systems |
+| **Structural Design** | ECP 203-2020 compliance; Residential load calculations (ECP 201) | Enhanced ECP 203-2020 requirements; Higher load capacity; Seismic zone compliance; Advanced structural engineering |
+| **Interior Finishes** | Personalization options; ES-approved materials; Green Building Code (optional) | Robust, low-maintenance finishes; Fire-rated materials (mandatory); Accessibility compliance (mandatory); Professional aesthetic |
+| **Inspections** | Supervising engineer; Ministry inspections at key stages | Multiple technical committee inspections; Fire safety authority; Civil defense approval; More frequent inspections |
+| **Occupancy Permit** | Standard process; Residential certificate | Enhanced requirements; Business license coordination; Fire safety clearance; Health department approval (if applicable) |
+| **Engineers' Syndicate** | Licensed engineer required (Law 66/1974) | Licensed engineer + specialized consultants; May require foreign expertise permits |
+
+---
+
+## Comparative Finishing Phases",construction_finishing_knowledge_base_egypt.md,3
+Phase 1: From Red Brick/Shell Stage (من الطوب الأحمر),"### Phase 1: From Red Brick/Shell Stage (من الطوب الأحمر)
+
+**Residential Buildings** (Egyptian Context):
 - ECP 203-2020 compliance for concrete structures
 - Light to medium framing (wood/steel per ECP 205)
 - Basic sheathing and roof installation
 - Standard structural requirements per ECP 201
 - Residential load considerations
 - Simplified inspection procedures
-Commercial Buildings(Egyptian Context):
+
+**Commercial Buildings** (Egyptian Context):
 - Strict ECP 203-2020 and ECP 205 compliance
 - Heavy steel and concrete structures
 - Support for larger spans and higher loads
@@ -719,15 +778,21 @@ Commercial Buildings(Egyptian Context):
 - Fire-rated structural elements (Fire Protection Code)
 - Multiple technical committee inspections
 - Advanced foundation design
-Key Difference: Commercial buildings require significantly more robust structural systems, multiple engineering reviews, and compliance with additional safety codes.",construction_finishing_knowledge_base_egypt.md,1
-Phase 2: Half-Finished Stage (نصف تشطيب),"Residential Buildings(Egyptian Context):
+
+**Key Difference**: Commercial buildings require significantly more robust structural systems, multiple engineering reviews, and compliance with additional safety codes.
+
+---",construction_finishing_knowledge_base_egypt.md,4
+Phase 2: Half-Finished Stage (نصف تشطيب),"### Phase 2: Half-Finished Stage (نصف تشطيب)
+
+**Residential Buildings** (Egyptian Context):
 - Basic insulation (climate appropriate)
 - Interior partitions and drywall
 - Standard windows and doors (Windows and Doors Code)
 - Plastering per Egyptian specifications
 - MEP rough-ins to Egyptian Standards
 - Single supervising engineer oversight
-Commercial Buildings(Egyptian Context):
+
+**Commercial Buildings** (Egyptian Context):
 - Extensive HVAC systems (higher capacity)
 - Complex electrical systems in conduits
 - Fire-rated stairwells and exits (mandatory)
@@ -737,8 +802,13 @@ Commercial Buildings(Egyptian Context):
 - Multiple specialized contractors
 - False ceiling/floor systems for MEP access
 - More frequent inspections
-Key Difference: Commercial projects require specialized contractors for each trade, automatic fire suppression systems, and comply with stricter safety codes with more intensive inspection schedules.",construction_finishing_knowledge_base_egypt.md,1
-Phase 3: On Plaster/Ready for Finishes Stage (على المحارة),"Residential Buildings(Egyptian Context):
+
+**Key Difference**: Commercial projects require specialized contractors for each trade, automatic fire suppression systems, and comply with stricter safety codes with more intensive inspection schedules.
+
+---",construction_finishing_knowledge_base_egypt.md,5
+Phase 3: On Plaster/Ready for Finishes Stage (على المحارة),"### Phase 3: On Plaster/Ready for Finishes Stage (على المحارة)
+
+**Residential Buildings** (Egyptian Context):
 - Flooring installation (tile, marble, parquet - ES approved)
 - Interior doors and hardware
 - Cabinetry and storage
@@ -746,7 +816,8 @@ Phase 3: On Plaster/Ready for Finishes Stage (على المحارة),"Residentia
 - Final fixtures installation
 - Aesthetic preference focus
 - Optional Green Building Code compliance
-Commercial Buildings(Egyptian Context):
+
+**Commercial Buildings** (Egyptian Context):
 - Commercial-grade flooring (heavy-duty vinyl, epoxy, ceramic tile)
 - Fire-rated doors (mandatory in certain areas)
 - Rolling shutters and security doors
@@ -757,8 +828,22 @@ Commercial Buildings(Egyptian Context):
 - Emergency lighting and exit signage
 - Accessibility features (mandatory)
 - Professional resilient finishes
-Key Difference: Commercial finishes prioritize fire safety, accessibility, durability, and compliance with multiple mandatory codes versus residential focus on personalization.",construction_finishing_knowledge_base_egypt.md,1
-Phase 4: Fully Finished/Turnkey (تشطيب كامل),"Commercial Buildings(Egyptian Context):
+
+**Key Difference**: Commercial finishes prioritize fire safety, accessibility, durability, and compliance with multiple mandatory codes versus residential focus on personalization.
+
+---",construction_finishing_knowledge_base_egypt.md,6
+Phase 4: Fully Finished/Turnkey (تشطيب كامل),"### Phase 4: Fully Finished/Turnkey (تشطيب كامل)
+
+**Residential Buildings** (Egyptian Context):
+- Aesthetically complete home
+- Comfortable functional living space
+- Final walkthrough with owner and engineer
+- Ministry of Housing inspection
+- Occupancy certificate for residential use
+- Utility connections (water, electricity, gas)
+- Ready for furniture and move-in
+
+**Commercial Buildings** (Egyptian Context):
 - Fully functional business space
 - All regulatory requirements met
 - Fire Protection Code compliance verified
@@ -771,26 +856,44 @@ Phase 4: Fully Finished/Turnkey (تشطيب كامل),"Commercial Buildings(Egyp
 - Occupancy permit for commercial use
 - Business license coordination
 - Insurance requirements met
-Key Difference: Commercial spaces undergo extensive multi-authority inspections and must meet numerous regulatory requirements before occupancy permits are issued, involving Fire Department, Civil Defense, Health Department, and Ministry of Housing.",construction_finishing_knowledge_base_egypt.md,1
-Updated Building Permit System (2024),"Major Reform: Reduced from 15 steps to 8 stepsTimeframe: 
+
+**Key Difference**: Commercial spaces undergo extensive multi-authority inspections and must meet numerous regulatory requirements before occupancy permits are issued, involving Fire Department, Civil Defense, Health Department, and Ministry of Housing.
+
+---
+
+## Building Permit Requirements in Egypt
+
+### Updated Building Permit System (2024)
+
+**Major Reform**: Reduced from 15 steps to 8 steps
+**Timeframe**:
 - Without insurance document: 26 working days
 - With insurance document: 40 working days
-Issuing Authority:
+
+**Issuing Authority**:
 - Technological Center (المركز التكنولوجي)
 - Planning and Organization Department in local governorate units
-- Ministry of Local Development oversight",construction_finishing_knowledge_base_egypt.md,1
-Step 1: Site Suitability Assessment,"Required Documents:
+- Ministry of Local Development oversight
+
+### 8-Step Process (2024 System)
+
+#### Step 1: Site Suitability Assessment
+**Required Documents**:
 - Copy of National ID
 - Site sketch
 - Proof of ownership (registered property contract no longer required)
-Process:
+
+**Process**:
 - Submit request to Technological Center
 - Pay fee for site survey
 - Survey conducted by Military Survey Department or Directorate of Surveying (15 days)
 - Administrative authority verifies planning and building requirements
 - Site suitability statement issued (5 days)
-Timeline: 20 days total",construction_finishing_knowledge_base_egypt.md,1
-Step 2: Building Permit Application,"Required Documents:
+
+**Timeline**: 20 days total
+
+#### Step 2: Building Permit Application
+**Required Documents**:
 - Contract with certified engineer (registered with Engineers' Syndicate)
 - Power of attorney
 - Architectural drawings (signed, sealed, and stamped by licensed architect)
@@ -798,214 +901,421 @@ Step 2: Building Permit Application,"Required Documents:
 - MEP drawings (mechanical, electrical, plumbing)
 - Proof of land ownership
 - Insurance document (if required - issued by Insurance Syndicate within 15 days)
-Process:
+
+**Process**:
 - Technological Center reviews application
 - Planning and Organization Department verifies compliance
 - Check against building codes (ECP 203, ECP 201, etc.)
 - Check architectural standards
 - Verify zoning compliance
-Timeline: 15 days review period",construction_finishing_knowledge_base_egypt.md,1
-Step 3: Contract Supervising Engineer,"Requirements:
+
+**Timeline**: 15 days review period
+
+#### Step 3: Contract Supervising Engineer
+**Requirements**:
 - Licensed engineer from Engineers' Syndicate
 - Specialized in relevant construction field
 - Submit contract to Technological Center
-- Engineer and contractor sign required declarations",construction_finishing_knowledge_base_egypt.md,1
-Step 4: Construction Commencement,"Requirements:
+- Engineer and contractor sign required declarations
+
+#### Step 4: Construction Commencement
+**Requirements**:
 - Display building permit on site
 - Supervising engineer oversight
 - Follow approved plans exactly
-- Regular inspections by Ministry of Housing",construction_finishing_knowledge_base_egypt.md,1
-Step 5: Progress Inspections,"Frequency: Occasional random inspections during constructionInspectors: Ministry of Housing, local authority inspectorsFocus: Compliance with approved plans, safety standards, code adherence",construction_finishing_knowledge_base_egypt.md,1
-Step 6: MEP Inspections,"Phase: Upon completion of rough-insInspectors: Licensed engineers, Ministry inspectorsTests: Pressure testing, electrical safety, system functionality",construction_finishing_knowledge_base_egypt.md,1
-Step 7: Final Inspection,"Scope: Complete building reviewInspectors: Ministry of Housing technical committeeVerification: 
+- Regular inspections by Ministry of Housing
+
+#### Step 5: Progress Inspections
+**Frequency**: Occasional random inspections during construction
+**Inspectors**: Ministry of Housing, local authority inspectors
+**Focus**: Compliance with approved plans, safety standards, code adherence
+
+#### Step 6: MEP Inspections
+**Phase**: Upon completion of rough-ins
+**Inspectors**: Licensed engineers, Ministry inspectors
+**Tests**: Pressure testing, electrical safety, system functionality
+
+#### Step 7: Final Inspection
+**Scope**: Complete building review
+**Inspectors**: Ministry of Housing technical committee
+**Verification**:
 - Structural compliance (ECP codes)
 - Fire safety (Fire Protection Code)
 - Accessibility features (if required)
 - MEP systems operational
-- Quality standards met",construction_finishing_knowledge_base_egypt.md,1
-Step 8: Occupancy Certificate,"Issued By: Local administrative authorityRequirements Met: All inspections passed, all codes complied withDocumentation: Completion certificate from engineer, inspection reports, as-built drawings
-Utility Connections: 
+- Quality standards met
+
+#### Step 8: Occupancy Certificate
+**Issued By**: Local administrative authority
+**Requirements Met**: All inspections passed, all codes complied with
+**Documentation**: Completion certificate from engineer, inspection reports, as-built drawings
+
+**Utility Connections**:
 - Water, electricity, and gas companies require building permit proof
 - Separate applications to utility companies
-- Connections approved after occupancy certificate",construction_finishing_knowledge_base_egypt.md,1
-Permit Fees (General Guidelines),"Residential Buildings:
--Range: EGP 10 to EGP 100 per square meter
--Variables: Location, building size, number of floors
--Additional Costs: Survey fees, engineering fees, inspection fees
-Note: Fees subject to change based on local ordinances and inflation. Verify current rates with local Technological Center.",construction_finishing_knowledge_base_egypt.md,1
-Common Issues and Solutions,"Issue 1: Missing Documents-Solution: Work with licensed consultant familiar with local requirements
--Prevention: Use comprehensive checklist before submission
-Issue 2: Zoning Boundaries Unclear-Solution: Request official zoning maps from local office
--Prevention: Obtain clarification before land purchase
-Issue 3: Unauthorized Construction-Risk: Buildings without permits may face demolition
--Prevention: Always verify land status and obtain proper permits
-Issue 4: Engineering Plan Inconsistencies-Solution: Have all drawings reviewed by coordinating architect before submission
--Prevention: Use BIM (Building Information Modeling) for coordination",construction_finishing_knowledge_base_egypt.md,1
-Professional Requirements,"Engineers' Syndicate Law No. 66 of 1974:
+- Connections approved after occupancy certificate
+
+### Permit Fees (General Guidelines)
+
+**Residential Buildings**:
+- **Range**: EGP 10 to EGP 100 per square meter
+- **Variables**: Location, building size, number of floors
+- **Additional Costs**: Survey fees, engineering fees, inspection fees
+
+**Note**: Fees subject to change based on local ordinances and inflation. Verify current rates with local Technological Center.
+
+### Common Issues and Solutions
+
+**Issue 1: Missing Documents**
+- **Solution**: Work with licensed consultant familiar with local requirements
+- **Prevention**: Use comprehensive checklist before submission
+
+**Issue 2: Zoning Boundaries Unclear**
+- **Solution**: Request official zoning maps from local office
+- **Prevention**: Obtain clarification before land purchase
+
+**Issue 3: Unauthorized Construction**
+- **Risk**: Buildings without permits may face demolition
+- **Prevention**: Always verify land status and obtain proper permits
+
+**Issue 4: Engineering Plan Inconsistencies**
+- **Solution**: Have all drawings reviewed by coordinating architect before submission
+- **Prevention**: Use BIM (Building Information Modeling) for coordination
+
+### Professional Requirements
+
+**Engineers' Syndicate Law No. 66 of 1974**:
 - All engineering work must be assigned to engineers registered with Engineers' Syndicate
 - Foreign engineering firms require temporary permit (granted on exceptional basis)
 - Foreign contractors must register with Egyptian Federation for Construction and Building Contractors (EFCBC)
-Foreign Contractors:
+
+**Foreign Contractors**:
 - Register as corresponding members of EFCBC
 - Partnership requirement: Minimum 51% with Egyptian active member (with limited exceptions)
-- May carry out activities permitted to first-tier active members",construction_finishing_knowledge_base_egypt.md,1
-Compliance and Anti-Corruption,"Public Contracts Law: 
+- May carry out activities permitted to first-tier active members
+
+### Compliance and Anti-Corruption
+
+**Public Contracts Law**:
 - Contracts awarded based on most qualified and lowest bid
 - Egyptian contractors given priority if bid within 15% of lowest foreign bid
-Reporting Requirements:
+
+**Reporting Requirements**:
 - Criminal Procedures Law No. 150/1950: Obligation to report crimes
 - No specific penalty for non-reporting except national security crimes
-Facilitation Payments: Not organized under Egyptian law",construction_finishing_knowledge_base_egypt.md,1
-Material Specifications,"Steel Grades(ES 262-2/2015 & 2021):
--B500DWR: Highest grade, 500 MPa yield strength
+
+**Facilitation Payments**: Not organized under Egyptian law
+
+---
+
+## Technical Terminology
+
+### Arabic-English Construction Terms
+
+| Arabic Term | English Translation | Egyptian Code Reference |
+|-------------|-------------------|------------------------|
+| الطوب الأحمر | Red Brick / Shell | ECP 203-2020 (structural stage) |
+| العظم | Shell/Structure | Initial construction phase |
+| المحارة | Plastering | Surface finishing per ECP specifications |
+| بؤج وأوتار | Guides and Strings | Traditional leveling method |
+| نصف تشطيب | Half-Finished | Intermediate stage - plastering complete |
+| تشطيب كامل | Full Finishing | Complete construction |
+| على المفتاح | Turnkey | Ready for immediate occupancy |
+| حلوق الأبواب | Door Frames | Windows and Doors Code |
+| حلوق الشبابيك | Window Frames | Windows and Doors Code |
+| الكرانيش | Cornices | Decorative ceiling elements |
+| الدهانات | Painting | Surface coating work |
+| المعجون | Filler/Putty | Pre-paint wall preparation |
+| البطانة | Primer | Base coat before paint |
+| النقاشة | Painting Work | Complete painting process |
+| الأرضيات | Flooring | Floor finishing materials |
+| المركز التكنولوجي | Technological Center | Permit issuing authority |
+
+### Egyptian Building Code Abbreviations
+
+| Code | Full Name | Current Version | Scope |
+|------|-----------|----------------|-------|
+| ECP 203 | Egyptian Code for Design and Construction of Concrete Structures | 2020 | Reinforced & prestressed concrete |
+| ECP 201 | Egyptian Code for Calculating Loads and Forces | 2011 | Dead, live, wind, seismic loads |
+| ECP 205 | Egyptian Code for Metal Structures and Bridges | 2001 | Steel construction (ASD method) |
+| ES 262-2 | Egyptian Standard for Steel Reinforcement | 2015/2021 | Rebar specifications |
+| HBRC | Housing and Building National Research Center | - | Code development authority |
+
+### Material Specifications
+
+**Steel Grades** (ES 262-2/2015 & 2021):
+- **B500DWR**: Highest grade, 500 MPa yield strength
   - Savings: Up to 17% in buildings, 8% in bridges
   - Elongation: Minimum 13%
   - Compliance: ISO 6935-2/2007
-Concrete Grades(ECP 203-2020):
--C250: Standard grade (25 MPa compressive strength)
--C350: Higher grade (35 MPa compressive strength)
--Mix Design: Per ECP 203-2020 specifications",construction_finishing_knowledge_base_egypt.md,1
-Flooring Materials,"Common Types(ES Specifications):
--Ceramic Tiles(سيراميك) - ES approved
--Porcelain Tiles(بورسلين) - ES approved
--Marble(رخام) - Natural stone (local standards)
--Parquet(باركيه) - Wood flooring (ES specs)
--Commercial Vinyl- Heavy-duty (commercial only)
--Epoxy- Industrial/commercial grade",construction_finishing_knowledge_base_egypt.md,1
-Primary Reference Documents,"Affiliation: Ministry of Housing, Utilities and Urban Development
-Unified Building Law No. 119 of 2008
-Engineering code compliance requirements
-Ministerial Decree No. 144 of 2009
-Engineers' Syndicate Law No. 66 of 1974
-Foreign engineer temporary permits
-Egyptian Federation for Construction and Building Contractors (EFCBC)",construction_finishing_knowledge_base_egypt.md,1
-Code Update Schedule,"ECP 203(Concrete Structures):
+
+**Concrete Grades** (ECP 203-2020):
+- **C250**: Standard grade (25 MPa compressive strength)
+- **C350**: Higher grade (35 MPa compressive strength)
+- **Mix Design**: Per ECP 203-2020 specifications
+
+**Structural Steel** (ECP 205):
+- **St 37**: Standard grade (370 MPa)
+- **St 44**: Higher grade (440 MPa)
+- **Allowable stresses**: Per ECP 205 tables
+
+### Flooring Materials
+
+**Common Types** (ES Specifications):
+- **Ceramic Tiles** (سيراميك) - ES approved
+- **Porcelain Tiles** (بورسلين) - ES approved
+- **Marble** (رخام) - Natural stone (local standards)
+- **Parquet** (باركيه) - Wood flooring (ES specs)
+- **Commercial Vinyl** - Heavy-duty (commercial only)
+- **Epoxy** - Industrial/commercial grade
+
+### MEP Systems Terminology
+
+| Abbreviation | Full Term | Egyptian Standard |
+|--------------|-----------|------------------|
+| MEP | Mechanical, Electrical, Plumbing | Various ECP codes |
+| HVAC | Heating, Ventilation, Air Conditioning | Energy Rationalization Code |
+| ES | Egyptian Standard | National standards system |
+
+---
+
+## Egyptian Code References
+
+### Primary Reference Documents
+
+1. **Housing and Building National Research Center (HBRC)**
+   - Website: www.hbrc.edu.eg
+   - Address: 87 El Tahrir St., Dokki, Cairo, Egypt
+   - Affiliation: Ministry of Housing, Utilities and Urban Development
+
+2. **Unified Building Law No. 119 of 2008**
+   - Comprehensive building regulation framework
+   - Urban planning and construction licensing
+   - Engineering code compliance requirements
+
+3. **Ministerial Decree No. 144 of 2009**
+   - Building permit procedures
+   - Technical committee formations
+
+4. **Engineers' Syndicate Law No. 66 of 1974**
+   - Professional engineering practice requirements
+   - Registration and licensing
+   - Foreign engineer temporary permits
+
+5. **Egyptian Federation for Construction and Building Contractors (EFCBC)**
+   - Contractor registration and classification
+   - Foreign contractor requirements
+   - Partnership regulations
+
+### Code Update Schedule
+
+**ECP 203** (Concrete Structures):
 - 2001 → 2004 → 2007 → 2020 (current)
 - Updates reflect international standards alignment
 - Based on limit states design method
-ECP 201(Loads and Forces):
+
+**ECP 201** (Loads and Forces):
 - 1993 → 2004 → 2008 → 2011 (current)
 - Incorporates Eurocode 8 framework for seismic design
 - Updates based on seismic research
-Building Permit System:
+
+**Building Permit System**:
 - Traditional 15-step system → 8-step system (2024)
 - Ongoing digitalization efforts
-- Streamlined for efficiency",construction_finishing_knowledge_base_egypt.md,1
-International Code Alignment,"Egyptian codes aligned with:
--IBC (International Building Code): Steel structures (ECP 205)
--British Standards: Concrete and masonry (ECP 203)
--Canadian Building Codes: Concrete structures
--Eurocode 8: Seismic design (ECP 201)
--ISO Standards: Steel reinforcement (ES 262-2)",construction_finishing_knowledge_base_egypt.md,1
-Green Building Standards,"Green Pyramid Rating System (GPRS):
+- Streamlined for efficiency
+
+### International Code Alignment
+
+**Egyptian codes aligned with**:
+- **IBC (International Building Code)**: Steel structures (ECP 205)
+- **British Standards**: Concrete and masonry (ECP 203)
+- **Canadian Building Codes**: Concrete structures
+- **Eurocode 8**: Seismic design (ECP 201)
+- **ISO Standards**: Steel reinforcement (ES 262-2)
+
+### Green Building Standards
+
+**Green Pyramid Rating System (GPRS)**:
 - Developed by: HBRC and Egyptian Green Building Council (EGBC)
 - First Edition: 2011
 - Certification Levels: Certified, Silver Pyramid, Gold Pyramid, Platinum Pyramid
 - Application: New buildings (retrofit code under development)
 - Status: Integration with Unified Building Law ongoing
-Green Building Code Categories:
+
+**Green Building Code Categories**:
 - Site sustainability
 - Water efficiency
 - Energy and atmosphere
 - Materials and resources
 - Indoor environmental quality
-- Innovation in design",construction_finishing_knowledge_base_egypt.md,1
-Common User Questions - Egyptian Context,"Q: What building codes apply in Egypt?A: Primary codes are ECP 203-2020 (concrete structures), ECP 201-2011 (loads/forces), and ECP 205-2001 (steel structures). All issued by HBRC under Unified Building Law No. 119/2008. Additional specialized codes for fire protection, accessibility, and green building apply based on project type.
-Q: How long does it take to get a building permit in Egypt?A: Under the 2024 streamlined system: 26 working days without insurance document, 40 working days with insurance document. Process involves 8 steps from site suitability through permit issuance.
-Q: What's included in shell finishing (من الطوب الأحمر)?A: Complete work from bare structure: planning, MEP rough-ins (per ECP codes), carpentry, plastering, gypsum, flooring, painting, and final installations. All must comply with ECP 203-2020, ECP 201, and relevant codes. Requires licensed engineer supervision (Engineers' Syndicate Law 66/1974). Timeline: 3-6 months.
-Q: Do I need a licensed engineer for construction?A: Yes, mandatory under Engineers' Syndicate Law No. 66/1974. All engineering work must be assigned to engineers registered with Egyptian Engineers' Syndicate. Foreign engineers need temporary permit on exceptional basis.
-Q: What's the difference between residential and commercial finishing?A: Commercial requires stricter code compliance (fire protection mandatory, accessibility mandatory), higher capacity MEP systems, more inspections by technical committees, fire suppression systems, and multiple authority approvals (Fire Department, Civil Defense, Health Department). Material specifications more robust for heavy traffic.
-Q: What fees are required for building permits?A: Residential: EGP 10-100 per square meter (varies by location and size). Additional fees: survey, engineering, inspections. Commercial: Higher fees due to additional safety reviews. Verify current rates with local Technological Center as fees subject to change.
-Q: Can foreign contractors work in Egypt?A: Yes, but must register with EFCBC as corresponding members. Requires minimum 51% partnership with Egyptian active EFCBC member (limited exceptions exist). Foreign engineering firms need temporary permit from Engineers' Syndicate.
-Q: What is the Green Pyramid Rating System?A: National green building rating system developed by HBRC and EGBC in 2010. Provides environmental certification for new buildings with levels: Certified, Silver, Gold, Platinum. Integration with building codes ongoing.
-Q: What happens if I build without a permit?A: Unauthorized construction violates Unified Building Law No. 119/2008. Buildings may face demolition orders, fines, and no utility connections. Retroactive permits generally not available. Always obtain proper permits before construction.",construction_finishing_knowledge_base_egypt.md,1
-Response Framework,"When answering questions about Egyptian construction:
-1.Identify relevant Egyptian code(ECP 203, ECP 201, ECP 205, etc.)
-2.Cite governing authority(HBRC, Ministry of Housing, local authority)
-3.Reference applicable law(Unified Building Law 119/2008, relevant decrees)
-4.Clarify residential vs commercialif applicable
-5.Mention required professionals(licensed engineers, registered contractors)
-6.Provide timeline estimatesbased on 2024 system
-7.Note inspection requirementsat various stages
-8.Include cost information(general ranges, subject to verification)
-9.Highlight recent updates(2024 permit reform, code versions)
-10.Recommend verificationwith local Technological Center for specifics",construction_finishing_knowledge_base_egypt.md,1
-Context-Specific Responses,"For Seismic Questions:
+- Innovation in design
+
+---
+
+## Chatbot Usage Guidelines
+
+### Common User Questions - Egyptian Context
+
+**Q: What building codes apply in Egypt?**
+A: Primary codes are ECP 203-2020 (concrete structures), ECP 201-2011 (loads/forces), and ECP 205-2001 (steel structures). All issued by HBRC under Unified Building Law No. 119/2008. Additional specialized codes for fire protection, accessibility, and green building apply based on project type.
+
+**Q: How long does it take to get a building permit in Egypt?**
+A: Under the 2024 streamlined system: 26 working days without insurance document, 40 working days with insurance document. Process involves 8 steps from site suitability through permit issuance.
+
+**Q: What's included in shell finishing (من الطوب الأحمر)?**
+A: Complete work from bare structure: planning, MEP rough-ins (per ECP codes), carpentry, plastering, gypsum, flooring, painting, and final installations. All must comply with ECP 203-2020, ECP 201, and relevant codes. Requires licensed engineer supervision (Engineers' Syndicate Law 66/1974). Timeline: 3-6 months.
+
+**Q: Do I need a licensed engineer for construction?**
+A: Yes, mandatory under Engineers' Syndicate Law No. 66/1974. All engineering work must be assigned to engineers registered with Egyptian Engineers' Syndicate. Foreign engineers need temporary permit on exceptional basis.
+
+**Q: What's the difference between residential and commercial finishing?**
+A: Commercial requires stricter code compliance (fire protection mandatory, accessibility mandatory), higher capacity MEP systems, more inspections by technical committees, fire suppression systems, and multiple authority approvals (Fire Department, Civil Defense, Health Department). Material specifications more robust for heavy traffic.
+
+**Q: What fees are required for building permits?**
+A: Residential: EGP 10-100 per square meter (varies by location and size). Additional fees: survey, engineering, inspections. Commercial: Higher fees due to additional safety reviews. Verify current rates with local Technological Center as fees subject to change.
+
+**Q: Can foreign contractors work in Egypt?**
+A: Yes, but must register with EFCBC as corresponding members. Requires minimum 51% partnership with Egyptian active EFCBC member (limited exceptions exist). Foreign engineering firms need temporary permit from Engineers' Syndicate.
+
+**Q: What is the Green Pyramid Rating System?**
+A: National green building rating system developed by HBRC and EGBC in 2010. Provides environmental certification for new buildings with levels: Certified, Silver, Gold, Platinum. Integration with building codes ongoing.
+
+**Q: What happens if I build without a permit?**
+A: Unauthorized construction violates Unified Building Law No. 119/2008. Buildings may face demolition orders, fines, and no utility connections. Retroactive permits generally not available. Always obtain proper permits before construction.
+
+### Response Framework
+
+When answering questions about Egyptian construction:
+1. **Identify relevant Egyptian code** (ECP 203, ECP 201, ECP 205, etc.)
+2. **Cite governing authority** (HBRC, Ministry of Housing, local authority)
+3. **Reference applicable law** (Unified Building Law 119/2008, relevant decrees)
+4. **Clarify residential vs commercial** if applicable
+5. **Mention required professionals** (licensed engineers, registered contractors)
+6. **Provide timeline estimates** based on 2024 system
+7. **Note inspection requirements** at various stages
+8. **Include cost information** (general ranges, subject to verification)
+9. **Highlight recent updates** (2024 permit reform, code versions)
+10. **Recommend verification** with local Technological Center for specifics
+
+### Context-Specific Responses
+
+**For Seismic Questions**:
 - Reference ECP 201 seismic zones (6 zones, PGA 0.10g-0.20g)
 - Note alignment with Eurocode 8 framework
 - Mention post-1992 Cairo earthquake code updates
-For Material Questions:
+
+**For Material Questions**:
 - Reference Egyptian Standards (ES specifications)
 - Note steel grade B500DWR advantages (17% savings)
 - Cite ECP 203-2020 for concrete specifications
 - Mention harmonization with international standards
-For Permit Questions:
+
+**For Permit Questions**:
 - Emphasize 2024 streamlined 8-step system
 - Provide realistic timelines (26-40 days)
 - Note required documents and professionals
 - Mention Technological Center as primary contact
-For Code Compliance:
+
+**For Code Compliance**:
 - Cite specific ECP code and version
 - Note HBRC as issuing authority
 - Mention inspection requirements
-- Reference Engineers' Syndicate Law for professional requirements",construction_finishing_knowledge_base_egypt.md,1
-✅ Verified Information Sources,"Egyptian Building Codes:
+- Reference Engineers' Syndicate Law for professional requirements
+
+---
+
+## Quality Assurance Notes
+
+### ✅ Verified Information Sources
+
+**Egyptian Building Codes**:
 - ECP 203-2020 confirmed as current version
 - ECP 201-2011 confirmed with seismic zones
 - ECP 205-2001 confirmed for steel structures
 - Source: HBRC official documentation, academic research papers
-Building Permit System:
+
+**Building Permit System**:
 - 2024 reform (15 to 8 steps) confirmed
 - Timeline (26-40 days) confirmed
 - Process details verified from Ministry of Local Development announcements
 - Source: Official government announcements, news reports
-Professional Requirements:
+
+**Professional Requirements**:
 - Engineers' Syndicate Law 66/1974 confirmed
 - Foreign contractor requirements confirmed
 - EFCBC registration confirmed
 - Source: Legal databases, professional organization regulations
-Material Standards:
+
+**Material Standards**:
 - ES 262-2/2015 & 2021 confirmed
 - B500DWR grade specifications confirmed
 - ISO 6935-2/2007 alignment confirmed
-- Source: Ezz Steel documentation, Egyptian Standards Organization",construction_finishing_knowledge_base_egypt.md,1
-✅ Structure Optimized for,"Database Ingestion:
+- Source: Ezz Steel documentation, Egyptian Standards Organization
+
+### ✅ Structure Optimized for
+
+**Database Ingestion**:
 - Clear hierarchical markdown structure
 - Consistent heading levels
 - Semantic organization
 - Comprehensive cross-referencing
-Natural Language Processing:
+
+**Natural Language Processing**:
 - Entity recognition (codes, laws, organizations)
 - Relationship mapping (code dependencies)
 - Temporal information (versions, dates, timelines)
 - Location-specific context (Egypt, Cairo, governorates)
-Question-Answer Systems:
+
+**Question-Answer Systems**:
 - FAQ section with common questions
 - Context-specific response frameworks
 - Code citation patterns
 - Professional requirement guidance
-Multilingual Queries:
+
+**Multilingual Queries**:
 - Arabic terminology with English translations
 - Transliterated Arabic terms
 - Code abbreviations in both languages
-- Authority names in Arabic and English",construction_finishing_knowledge_base_egypt.md,1
-✅ Documentation Standards,"Compliance:
+- Authority names in Arabic and English
+
+### ✅ Documentation Standards
+
+**Compliance**:
 - All Egyptian codes referenced with versions
 - Legislation cited with numbers and years
 - Authorities identified with full names
 - Timelines based on current 2024 system
-Currency:
+
+**Currency**:
 - Updated with December 2025 information
 - Reflects 2024 building permit reform
 - Includes latest code versions (ECP 203-2020)
 - References current material standards (ES 262-2/2021)
-Accuracy:
+
+**Accuracy**:
 - Code versions verified against multiple sources
 - Timelines cross-referenced with government announcements
 - Professional requirements verified against legal sources
-- Material specifications confirmed with manufacturers",construction_finishing_knowledge_base_egypt.md,1
-Document Metadata,"Version: 2.0 - Egypt EditionCreated: December 2025Based on: Egyptian Building Codes and StandardsPrimary Authority: Housing and Building National Research Center (HBRC)Governing Legislation: Unified Building Law No. 119 of 2008Format: MarkdownEncoding: UTF-8Target Use: Chatbot Knowledge Base - Egyptian Construction IndustryLanguages: English (primary), Arabic (terminology references)Geographic Scope: Arab Republic of EgyptIndustry: Construction, Real Estate, Urban DevelopmentCompliance: Egyptian Building Codes (ECP series), Egyptian Standards (ES series)
-Key Updates from Version 1.0:
+- Material specifications confirmed with manufacturers
+
+---
+
+## Document Metadata
+
+**Version**: 2.0 - Egypt Edition
+**Created**: December 2025
+**Based on**: Egyptian Building Codes and Standards
+**Primary Authority**: Housing and Building National Research Center (HBRC)
+**Governing Legislation**: Unified Building Law No. 119 of 2008
+**Format**: Markdown
+**Encoding**: UTF-8
+**Target Use**: Chatbot Knowledge Base - Egyptian Construction Industry
+**Languages**: English (primary), Arabic (terminology references)
+**Geographic Scope**: Arab Republic of Egypt
+**Industry**: Construction, Real Estate, Urban Development
+**Compliance**: Egyptian Building Codes (ECP series), Egyptian Standards (ES series)
+
+**Key Updates from Version 1.0**:
 - Added complete Egyptian Building Code framework
 - Integrated 2024 building permit system (8-step process)
 - Included HBRC codes and standards
@@ -1015,17 +1325,27 @@ Key Updates from Version 1.0:
 - Added foreign contractor requirements
 - Included seismic design information
 - Expanded compliance and inspection procedures
-- Added comprehensive Egyptian code references",construction_finishing_knowledge_base_egypt.md,1
-Disclaimer,"This knowledge base is designed for informational purposes and chatbot training. While based on official Egyptian building codes and regulations current as of December 2025:
-Always verifycurrent requirements with local Technological CenterConsult licensed professionalsregistered with Engineers' SyndicateCheck latest versionsof Egyptian codes with HBRCConfirm fees and timelineswith local authorities (subject to change)Seek legal advicefor compliance and regulatory mattersReview updated regulationsas Egyptian codes undergo periodic revisions
-Official Sources:
+- Added comprehensive Egyptian code references
+
+---
+
+## Disclaimer
+
+This knowledge base is designed for informational purposes and chatbot training. While based on official Egyptian building codes and regulations current as of December 2025:
+
+- **Always verify** current requirements with local Technological Center
+- **Consult licensed professionals** registered with Engineers' Syndicate
+- **Check latest versions** of Egyptian codes with HBRC
+- **Confirm fees and timelines** with local authorities (subject to change)
+- **Seek legal advice** for compliance and regulatory matters
+- **Review updated regulations** as Egyptian codes undergo periodic revisions
+
+**Official Sources**:
 - Housing and Building National Research Center: www.hbrc.edu.eg
 - Ministry of Housing, Utilities and Urban Development
 - Local Technological Centers in governorates
 - Egyptian Engineers' Syndicate
-- Egyptian Federation for Construction and Building Contractors
-End of Knowledge Base Document - Egyptian Standards Edition
-For updates and official code documents, contact Housing and Building National Research Center, 87 El Tahrir St., Dokki, Cairo, Egypt",construction_finishing_knowledge_base_egypt.md,1
+- Egyptian Federation for Construction and Building Contractors",construction_finishing_knowledge_base_egypt.md,7
 1 خامات أساسية,"الأسمت1- الأسمت البوزلانى2- مادة تشطيب اسمنتية3- اسمت اكو بلانتالطوب1- الطوب الطفلي2- الطوب
 1- الأسمت البوزلانى2- مادة تشطيب اسمنتية3- اسمت اكو بلانت
 1- الطوب الطفلي2- الطوب",data2.md,1

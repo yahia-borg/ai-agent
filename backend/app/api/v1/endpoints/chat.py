@@ -11,7 +11,6 @@ import logging
 
 from app.core.database import get_db
 from app.agents.conversational_agent import ConversationalAgent
-from app.agents.memory_manager import MemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +107,8 @@ async def chat_endpoint(
         if not message:
             raise HTTPException(status_code=400, detail="Message is required")
         
-        # Initialize agent and memory manager
-        memory_manager = MemoryManager(db)
-        agent = ConversationalAgent(memory_manager)
+        # Initialize agent (LangGraph's MemorySaver handles conversation persistence)
+        agent = ConversationalAgent()
         
         # Get or create session_id (separate from quotation_id)
         if not session_id:
@@ -195,8 +193,8 @@ async def chat_stream_endpoint(
     
     async def event_generator():
         try:
-            memory_manager = MemoryManager(db)
-            agent = ConversationalAgent(memory_manager)
+            # LangGraph's MemorySaver handles conversation persistence automatically
+            agent = ConversationalAgent()
             
             # Get or create session_id (separate from quotation_id)
             session_id = request.session_id or f"session-{uuid.uuid4().hex[:12]}"
@@ -213,8 +211,8 @@ async def chat_stream_endpoint(
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
             
-            # Send completion event
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            # Agent already sends 'done' event with quotation_id/session_id
+            pass
             
         except ValidationError as e:
             logger.error(f"Validation error in streaming endpoint: {e}")

@@ -57,16 +57,36 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: str = ""
     
     # Embedding Model Configuration (Hugging Face)
-    # Embedding Model Configuration (Hugging Face)
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     EMBEDDING_MODEL_PATH: str = ""
+    # Force CPU for embeddings if CUDA is incompatible (set to "cpu" to force, "cuda" to force GPU, None for auto)
+    EMBEDDING_DEVICE: str = None
 
     # Agent Limits
     MAX_TOTAL_TURNS: int = 20
+    MAX_ITERATIONS: int = 15  # Max iterations in ReAct loop before force stop
     MAX_REQUIREMENTS_ATTEMPTS: int = 8
     MAX_DATA_RETRIEVAL_ATTEMPTS: int = 3
     MAX_CALCULATION_ATTEMPTS: int = 3
     SESSION_TIMEOUT_MINUTES: int = 30
+    
+    # Tool Limits
+    MAX_TOOL_CALLS_PER_TURN: int = 10
+    TOOL_TIMEOUT_SECONDS: int = 30
+    MAX_ADDITIONAL_INFO_LENGTH: int = 200  # Max chars for additional_info parameter
+    
+    # Search Limits
+    DEFAULT_SEARCH_LIMIT: int = 10
+    MAX_SEARCH_LIMIT: int = 50
+    WORD_SEARCH_LIMIT: int = 5  # Limit when searching individual words
+    
+    # Export Limits
+    MAX_DESCRIPTION_WIDTH: int = 180  # Characters per line in PDF descriptions
+    MAX_MATERIAL_NAME_LENGTH: int = 25  # Max material name length in PDF
+    MAX_TABLE_ROWS: int = 100
+    
+    # Graph Limits
+    RECURSION_LIMIT: int = 50  # LangGraph recursion limit
 
     # LangSmith Configuration
     LANGSMITH_API_KEY: str = ""

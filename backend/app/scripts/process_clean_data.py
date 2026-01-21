@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from app.scripts.md_parser_enhanced import (
     parse_materials_from_md,
     parse_labor_rates_from_md,
-    parse_knowledge_from_md
+    parse_knowledge_from_md,
+    parse_knowledge_hierarchical_from_md
 )
 from app.scripts.csv_exporter import (
     export_materials_to_csv,
@@ -26,14 +27,7 @@ from app.scripts.csv_validator import (
     validate_knowledge_items,
     save_validation_report
 )
-from app.scripts.ingest_from_csv import (
-    clear_all_data,
-    ingest_materials_from_csv,
-    ingest_labor_from_csv,
-    ingest_knowledge_from_csv
-)
 from app.services.qdrant_service import get_qdrant_service
-from app.core.database import SessionLocal
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -91,9 +85,15 @@ def main():
         logger.info(f"  - Extracted {len(labor)} labor rates")
         
         # Parse knowledge items
-        knowledge = parse_knowledge_from_md(md_file)
+        # Use hierarchical chunking for construction_finishing_knowledge_base_egypt.md
+        filename = os.path.basename(md_file)
+        if filename == "construction_finishing_knowledge_base_egypt.md":
+            knowledge = parse_knowledge_hierarchical_from_md(md_file, filename)
+            logger.info(f"  - Extracted {len(knowledge)} hierarchical knowledge chunks")
+        else:
+            knowledge = parse_knowledge_from_md(md_file)
+            logger.info(f"  - Extracted {len(knowledge)} knowledge items")
         all_knowledge_items.extend(knowledge)
-        logger.info(f"  - Extracted {len(knowledge)} knowledge items")
     
     logger.info(f"\nTotal extracted:")
     logger.info(f"  - Materials: {len(all_materials)}")
@@ -132,83 +132,35 @@ def main():
         )
         logger.info(f"Validation report saved to: {report_path}")
     
-    # Step 4: Clear database and ingest
-    logger.info("\n[Step 4] Ingesting to database...")
-    db = SessionLocal()
-    try:
-        # Clear existing data
-        clear_all_data(db)
-        
-        # Ingest valid data
-        if valid_materials:
-            # Write valid materials to temporary CSV
-            import csv
-            valid_materials_csv = os.path.join(exports_dir, "materials_valid.csv")
-            with open(valid_materials_csv, 'w', newline='', encoding='utf-8') as f:
-                if valid_materials:
-                    writer = csv.DictWriter(f, fieldnames=valid_materials[0].keys())
-                    writer.writeheader()
-                    writer.writerows(valid_materials)
-            ingest_materials_from_csv(valid_materials_csv, db)
-        
-        if valid_labor:
-            valid_labor_csv = os.path.join(exports_dir, "labor_rates_valid.csv")
-            with open(valid_labor_csv, 'w', newline='', encoding='utf-8') as f:
-                if valid_labor:
-                    writer = csv.DictWriter(f, fieldnames=valid_labor[0].keys())
-                    writer.writeheader()
-                    writer.writerows(valid_labor)
-            ingest_labor_from_csv(valid_labor_csv, db)
-        
-        if valid_knowledge:
-            valid_knowledge_csv = os.path.join(exports_dir, "knowledge_items_valid.csv")
-            with open(valid_knowledge_csv, 'w', newline='', encoding='utf-8') as f:
-                if valid_knowledge:
-                    writer = csv.DictWriter(f, fieldnames=valid_knowledge[0].keys())
-                    writer.writeheader()
-                    writer.writerows(valid_knowledge)
-            ingest_knowledge_from_csv(valid_knowledge_csv, db)
-        
-        logger.info("Database ingestion completed")
-        
-    except Exception as e:
-        logger.error(f"Error during database ingestion: {e}")
-        raise
-    finally:
-        db.close()
+    # Step 4: Skip PostgreSQL ingestion (user wants Qdrant only)
+    logger.info("\n[Step 4] Skipping PostgreSQL ingestion (Qdrant only mode)...")
+    logger.info("  - Materials and labor data in PostgreSQL will remain unchanged")
+    logger.info("  - Knowledge items will be ingested directly to Qdrant")
     
-    # Step 5: Create Qdrant vector store
-    logger.info("\n[Step 5] Creating Qdrant vector store...")
+    # Step 5: Ingest knowledge items directly to Qdrant (skip PostgreSQL)
+    logger.info("\n[Step 5] Ingesting knowledge items to Qdrant...")
     try:
         qdrant_service = get_qdrant_service()
         qdrant_service.init_collection(recreate=True)
         
-        # Get knowledge items from database for syncing
-        db = SessionLocal()
-        try:
-            from app.models.knowledge import KnowledgeItem
-            knowledge_items = db.query(KnowledgeItem).all()
-            
-            # Convert to dict format
+        # Use valid_knowledge items directly (from CSV parsing, not from database)
+        if valid_knowledge:
+            # Convert to dict format for Qdrant
             items = []
-            for item in knowledge_items:
+            for idx, item in enumerate(valid_knowledge, start=1):
                 items.append({
-                    "id": item.id,
-                    "topic": item.topic or "",
-                    "content": item.content,
-                    "source_document": item.source_document or "",
-                    "page_number": item.page_number or 1
+                    "id": idx,  # Use sequential ID since we're not using database
+                    "topic": item.get("topic", ""),
+                    "content": item.get("content", ""),
+                    "source_document": item.get("source_document", ""),
+                    "page_number": item.get("page_number", 1)
                 })
             
             # Add to Qdrant
-            if items:
-                qdrant_service.add_knowledge_items(items)
-                logger.info(f"Added {len(items)} knowledge items to Qdrant")
-            else:
-                logger.warning("No knowledge items to add to Qdrant")
-                
-        finally:
-            db.close()
+            qdrant_service.add_knowledge_items(items)
+            logger.info(f"Added {len(items)} knowledge items to Qdrant")
+        else:
+            logger.warning("No valid knowledge items to add to Qdrant")
         
         logger.info("Qdrant vector store created successfully")
         
@@ -220,9 +172,9 @@ def main():
     logger.info("Data Processing Pipeline Completed Successfully!")
     logger.info("="*60)
     logger.info(f"\nSummary:")
-    logger.info(f"  - Materials: {len(valid_materials)} imported")
-    logger.info(f"  - Labor rates: {len(valid_labor)} imported")
-    logger.info(f"  - Knowledge items: {len(valid_knowledge)} imported")
+    logger.info(f"  - Materials: {len(valid_materials)} parsed (not ingested to PostgreSQL)")
+    logger.info(f"  - Labor rates: {len(valid_labor)} parsed (not ingested to PostgreSQL)")
+    logger.info(f"  - Knowledge items: {len(valid_knowledge)} ingested to Qdrant")
     logger.info(f"\nCSV files saved to: {exports_dir}")
     logger.info(f"Qdrant collection: knowledge_items")
 

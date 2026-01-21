@@ -4,7 +4,6 @@ Chat service for orchestrating conversational agent interactions
 from typing import List, Dict, Any, Optional, AsyncGenerator
 from sqlalchemy.orm import Session
 from app.agents.conversational_agent import ConversationalAgent
-from app.agents.memory_manager import MemoryManager
 
 
 class ChatService:
@@ -12,8 +11,8 @@ class ChatService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.memory_manager = MemoryManager(db)
-        self.agent = ConversationalAgent(self.memory_manager)
+        # LangGraph's MemorySaver handles conversation persistence automatically
+        self.agent = ConversationalAgent()
     
     async def process_message(
         self,

@@ -1,20 +1,18 @@
-from typing import Dict, Any, Literal
+from typing import Dict, Any, Union
 from sqlalchemy.orm import Session
-from langgraph.graph import StateGraph, START, END
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import ToolNode
-from contextvars import ContextVar
 import logging
 
 from app.agents.state import QuotationAgentState
-from app.agents.supervisor import SupervisorAgent, SUPERVISOR_TOOLS
+from app.agents.supervisor import SupervisorAgent
 from app.models.quotation import Quotation, QuotationStatus
-from app.core.database import SessionLocal
+from app.core.db_context import db_session_context, get_or_create_async_db_session
+from app.core.config import settings
+from app.graph.builder import build_supervisor_graph
 
 logger = logging.getLogger(__name__)
-
-# Context variable for database session
-db_session_context: ContextVar[Session] = ContextVar('db_session', default=None)
 
 class LangGraphOrchestrator:
     """
@@ -25,86 +23,42 @@ class LangGraphOrchestrator:
     def __init__(self):
         self.checkpointer = MemorySaver()
         self.supervisor = SupervisorAgent()
-        self.graph = self._build_graph()
-        
-    def _build_graph(self) -> StateGraph:
-        """Build the ReAct State Graph"""
-        builder = StateGraph(QuotationAgentState)
-        
-        # Define Nodes
-        builder.add_node("supervisor", self._supervisor_node)
-        builder.add_node("tools", ToolNode(SUPERVISOR_TOOLS))
-        
-        # Define Edges
-        builder.add_edge(START, "supervisor")
-        
-        # Conditional Edge: Check if supervisor wants to call tools or end
-        builder.add_conditional_edges(
-            "supervisor",
-            self._should_continue,
-            {
-                "continue": "tools",
-                "end": END
-            }
+        self.graph = build_supervisor_graph(
+            checkpointer=self.checkpointer,
+            supervisor=self.supervisor,
+            max_iterations=settings.MAX_ITERATIONS,
+            use_start_edge=True
         )
-        
-        # Edge: Tool output always goes back to supervisor
-        builder.add_edge("tools", "supervisor")
-        
-        return builder.compile(checkpointer=self.checkpointer)
 
-    async def _supervisor_node(self, state: QuotationAgentState) -> Dict[str, Any]:
-        """Run the Supervisor Agent (LLM)"""
-        # Increment iteration count to prevent infinite loops
-        current_iteration = state.get("iteration_count", 0) + 1
-        
-        # Call the supervisor agent
-        result = await self.supervisor.invoke(state)
-        
-        return {
-            "messages": result["messages"],
-            "iteration_count": current_iteration
-        }
-
-    def _should_continue(self, state: QuotationAgentState) -> Literal["continue", "end"]:
-        """Determine next step based on the last message"""
-        messages = state.get("messages", [])
-        if not messages:
-            return "end"
-            
-        last_message = messages[-1]
-        iteration = state.get("iteration_count", 0)
-        
-        # Safety Valve: Hard stop after 15 iterations
-        if iteration >= 15:
-            logger.warning(f"Quotation {state.get('quotation_id')} hit max iterations (15). Force stopping.")
-            return "end"
-            
-        # Check if LLM made tool calls
-        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
-            return "continue"
-            
-        return "end"
-
-    async def process_quotation(self, quotation_id: str, db: Session) -> Dict[str, Any]:
+    async def process_quotation(self, quotation_id: str, db: Union[Session, AsyncSession]) -> Dict[str, Any]:
         """
         Process a quotation using the Supervisor Graph.
         
         Args:
             quotation_id: The ID of the quotation to process.
-            db: Database session.
+            db: Database session (sync or async - will convert to async if needed).
         """
-        db_session_context.set(db)
+        # Convert to async session if needed, or use existing async session
+        if isinstance(db, AsyncSession):
+            async_db = db
+            should_close = False
+        else:
+            # Create async session for tools (they expect async)
+            async_db = await get_or_create_async_db_session()
+            should_close = db_session_context.get() is None
+        
+        db_session_context.set(async_db)
         
         try:
             # Check/Update Status
-            quotation = db.query(Quotation).filter(Quotation.id == quotation_id).first()
+            result = await async_db.execute(select(Quotation).filter(Quotation.id == quotation_id))
+            quotation = result.scalar_one_or_none()
             if not quotation:
                 return {"success": False, "error": "Quotation not found"}
                 
             if quotation.status == QuotationStatus.PENDING:
                 quotation.status = QuotationStatus.PROCESSING
-                db.commit()
+                await async_db.commit()
 
             # Initialize State
             # Note: We don't load the full chat history from DB here because 
@@ -114,16 +68,19 @@ class LangGraphOrchestrator:
                 "messages": [], # Start empty, let Supervisor fetch data via tools
                 "quotation_id": quotation_id,
                 "status": quotation.status.value,
-                "processing_context": {},
+                "current_phase": "GATHERING",
+                "finish_levels": {},
+                "processing_context": {
+                    # Legacy fields moved here
+                    "extracted_data": None,
+                    "confidence_score": None,
+                    "needs_followup": False,
+                    "follow_up_questions": [],
+                    "cost_breakdown": None,
+                    "total_cost": None,
+                    "error": None
+                },
                 "iteration_count": 0,
-                # Init legacy fields to None to satisfy TypedDict if needed (though Optional handles it)
-                "extracted_data": None,
-                "confidence_score": None,
-                "needs_followup": False,
-                "follow_up_questions": [],
-                "cost_breakdown": None,
-                "total_cost": None,
-                "error": None,
                 "results": {}
             }
             
@@ -138,7 +95,7 @@ class LangGraphOrchestrator:
             # In ReAct, "END" just means LLM stopped. We should check if costs were calculated.
             # We can check specific tool outputs or query the DB for QuotationData.
             
-            db.refresh(quotation) # detailed data saved by tools
+            await async_db.refresh(quotation) # detailed data saved by tools
             
             # Simple heuristic: If we have a total cost, it's done. 
             # Otherwise, it might be waiting for user input (which this API doesn't handle directly interactively yet).
@@ -146,7 +103,7 @@ class LangGraphOrchestrator:
             
             if quotation.quotation_data and quotation.quotation_data.total_cost:
                  quotation.status = QuotationStatus.COMPLETED
-                 db.commit()
+                 await async_db.commit()
             
             return {
                 "success": True, 
@@ -156,11 +113,15 @@ class LangGraphOrchestrator:
 
         except Exception as e:
             logger.error(f"Orchestration Error: {e}")
-            # Mark failed
-            q = db.query(Quotation).filter(Quotation.id == quotation_id).first()
-            if q:
-                q.status = QuotationStatus.FAILED
-                db.commit()
+            try:
+                # Mark failed
+                q_result = await async_db.execute(select(Quotation).filter(Quotation.id == quotation_id))
+                q = q_result.scalar_one_or_none()
+                if q:
+                    q.status = QuotationStatus.FAILED
+                    await async_db.commit()
+            except Exception:
+                pass
             
             return {
                 "success": False,
@@ -169,3 +130,5 @@ class LangGraphOrchestrator:
             }
         finally:
             db_session_context.set(None)
+            if should_close:
+                await async_db.close()

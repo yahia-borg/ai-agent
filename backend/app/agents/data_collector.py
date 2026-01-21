@@ -90,7 +90,7 @@ class DataCollectorAgent(BaseAgent):
         # Ensure location_details exists and is properly formatted
         if "location_details" not in data or not isinstance(data["location_details"], dict):
             data["location_details"] = {}
-
+        
         # Use provided zip_code if available
         if quotation.zip_code:
             data["location_details"]["zip_code"] = quotation.zip_code
@@ -114,49 +114,48 @@ class DataCollectorAgent(BaseAgent):
         description = quotation.project_description.lower()
         detected_lang = detect_language(quotation.project_description)
         
-        # Extract square meters (primary for Egypt)
+        # Extract square meters (primary for Egypt - only unit used)
         sqm_match = re.search(r'(\d+)\s*(?:sqm|m2|m²|meter|متر|م²|م\s*مربع)', description, re.IGNORECASE)
         size_sqm = int(sqm_match.group(1)) if sqm_match else None
-        
-        # Extract square footage (support both English and Arabic patterns)
-        sqft_match = re.search(r'(\d+)\s*(?:sq\s*ft|square\s*feet|sf|قدم|قدم\s*مربع)', description, re.IGNORECASE)
-        size_sqft = int(sqft_match.group(1)) if sqft_match else None
-        
-        # Convert if only one is found
-        if size_sqm and not size_sqft:
-            size_sqft = int(size_sqm * 10.764)  # Convert sqm to sqft
-        elif size_sqft and not size_sqm:
-            size_sqm = int(size_sqft * 0.092903)  # Convert sqft to sqm
         
         # Determine project type from keywords (English and Arabic)
         project_type = None
         english_keywords = {
-            "commercial": ["office", "commercial", "retail", "warehouse", "shop", "cafe", "coffee", "restaurant", "store", "showroom"],
-            "residential": ["home", "house", "residential", "apartment", "villa", "unit"],
-            "renovation": ["renovation", "remodel", "renovate", "finish"],
-            "new_construction": ["new construction", "build", "construct", "foundation"]
+            "commercial": ["office", "commercial", "retail", "warehouse", "shop", "cafe", "coffee", "restaurant", "store", "showroom", "كافيه", "قهوة", "مطعم", "معرض", "متجر"],
+            "residential": ["home", "house", "residential", "apartment", "villa", "unit", "منزل", "سكني", "شقة", "بيت", "فيلا", "وحدة"],
+            "new_construction": ["new construction", "build", "construct", "foundation", "بناء جديد", "بناء", "إنشاء", "تأسيس"]
         }
         
-        arabic_keywords = {
-            "commercial": ["مكتب", "تجاري", "محل", "مستودع", "كافيه", "قهوة", "مطعم", "معرض", "متجر"],
-            "residential": ["منزل", "سكني", "شقة", "بيت", "فيلا", "وحدة"],
-            "renovation": ["تجديد", "ترميم", "إعادة", "تشطيب", "محارة", "مفتاح"],
-            "new_construction": ["بناء جديد", "بناء", "إنشاء", "تأسيس"]
-        }
-        
-        keywords = english_keywords if detected_lang == "en" else (
-            arabic_keywords if detected_lang == "ar" else {**english_keywords, **arabic_keywords}
-        )
-        
-        for ptype, words in keywords.items():
+        for ptype, words in english_keywords.items():
             if any(word in description for word in words):
                 project_type = ptype
                 break
         
-        # Extract timeline (support weeks/months in both languages)
-        timeline_match = re.search(r'(\d+)\s*(?:week|month|أسبوع|شهر|أسابيع|أشهر)', description)
-        timeline_weeks = int(timeline_match.group(1)) if timeline_match else None
+        # Extract finish levels (Fallback)
+        current_finish = None
+        target_finish = None
         
+        finish_keywords = {
+            "core_shell": ["core", "shell", "brick", "concrete", "طوب", "خرسانة", "عالطوب"],
+            "on_plaster": ["plaster", "محارة", "عالمحارة"],
+            "semi_finished": ["semi", "نص", "نصف"],
+            "fully_finished": ["fully", "finished", "كامل", "متشطب"],
+            "turnkey": ["turnkey", "lux", "لوكس", "مفتاح"]
+        }
+        
+        # Simple extraction logic: check for "semi" or "finished" or "fully"
+        if "semi" in description or "نص" in description:
+            current_finish = "semi_finished"
+        elif "plaster" in description or "محارة" in description:
+            current_finish = "on_plaster"
+        elif "brick" in description or "طوب" in description:
+            current_finish = "core_shell"
+            
+        if "fully" in description or "كامل" in description or "turnkey" in description or "مفتاح" in description:
+            target_finish = "fully_finished"
+            if "lux" in description or "لوكس" in description or "turnkey" in description or "مفتاح" in description:
+                target_finish = "turnkey"
+
         follow_up_question = (
             "What specific materials or finishes are you looking for?"
             if detected_lang == "en" else
@@ -166,10 +165,10 @@ class DataCollectorAgent(BaseAgent):
         return {
             "extracted_data": {
                 "project_type": project_type or "residential",
-                "size_sqft": size_sqft,
                 "size_sqm": size_sqm,
+                "current_finish_level": current_finish,
+                "target_finish_level": target_finish,
                 "location_details": {},
-                "timeline_weeks": timeline_weeks,
                 "key_requirements": [],
                 "confidence_score": 0.5,
                 "missing_information": ["Detailed requirements"] if detected_lang == "en" else ["المتطلبات التفصيلية"],
@@ -181,4 +180,3 @@ class DataCollectorAgent(BaseAgent):
             "follow_up_questions": [follow_up_question],
             "detected_language": detected_lang
         }
-

@@ -1,0 +1,159 @@
+name,category,unit,price_per_unit,currency,source_document
+General Number /الرقم العام,General,unit,350.99,EGP,data3.md
+Normal Portland / بورتلاند عادي,General,unit,116.4,EGP,data3.md
+White / أبيض,General,unit,184.7,EGP,data3.md
+Aluminum bars,General,unit,159.0,EGP,data3.md
+Red Copper Nets,General,unit,494.3,EGP,data3.md
+Red copper ribbons and shapes,General,unit,439.8,EGP,data3.md
+Yellow Copper Molds,General,unit,325.7,EGP,data3.md
+Round Iron 16 mm,Glassالزجاج,ton,39352.75,EGP,compressed.md
+Round Iron 13 mm,Glassالزجاج,ton,39352.75,EGP,compressed.md
+Round Iron 10 mm,Glassالزجاج,ton,39352.75,EGP,compressed.md
+Ordinary portland cement packed in a sack,Glassالزجاج,50 kg,140.21,EGP,compressed.md
+White cement packed in a sack,Glassالزجاج,50 kg,189.12,EGP,compressed.md
+Iron cement packed in a sack,Glassالزجاج,50 kg,89.42,EGP,compressed.md
+Solid brick 25*12*6 cm,Glassالزجاج,1000 units,1785.24,EGP,compressed.md
+Hollow brick 25*12*6 cm,Glassالزجاج,1000 units,1732.48,EGP,compressed.md
+Hollow brick 40*20*12 cm,Glassالزجاج,1000 units,2071.82,EGP,compressed.md
+Sand,Glassالزجاج,m³,225.81,EGP,compressed.md
+Gravel,Glassالزجاج,m³,300.91,EGP,compressed.md
+Elsen1,Glassالزجاج,m³,336.28,EGP,compressed.md
+Elsen2,Glassالزجاج,m³,294.74,EGP,compressed.md
+No. (1) gypsum packed in sacks,Glassالزجاج,ton,1940.67,EGP,compressed.md
+Beech wood from 100-170 cm,Glassالزجاج,m³,22266.67,EGP,compressed.md
+Sweden wood no (1),Glassالزجاج,m³,16942.54,EGP,compressed.md
+Blank wood no (1),Glassالزجاج,m³,13151.65,EGP,compressed.md
+Flat engraved glass 3 mm white,Glassالزجاج,flat meter,235.81,EGP,compressed.md
+Flat engraved glass 4 mm white,Glassالزجاج,flat meter,273.75,EGP,compressed.md
+Ordinary tiles 20*20*2 cm,Glassالزجاج,عادي ٢×٢٠ سم × ٢٠ سم,78.66,EGP,compressed.md
+Cement Tiles 20*20*2 cm,Glassالزجاج,بلاط اسمنتي ٢٠ سم × ٢٠ سم,58.88,EGP,compressed.md
+Floor ceramic first class30*20 thickness 10 mm,Glassالزجاج,ســيراميك أرضيــة درجة اوــلي ٣٠ × ٣٠ سم,138.93,EGP,compressed.md
+Floor ceramic first class30*20 thickness 12 mm,Glassالزجاج,ســيراميك حوائط درجة اوــلي ٣٠ × ٣٠ سم,136.61,EGP,compressed.md
+Slick foundry 3 cm,Glassالزجاج,حاتمية ساقـلة ٣ سم,514.91,EGP,compressed.md
+Rose Granite 3 Cm,Glassالزجاج,جرانيت روز ٣ سم,838.06,EGP,compressed.md
+Diameter ½ inch,Glassالزجاج,قطر ½ بوصة,57.75,EGP,compressed.md
+Diameter ¾ inch,Glassالزجاج,قطر ¾ بوصة,63.56,EGP,compressed.md
+Diameter ¾ inchgalvanized thickness 2.65 mm,Glassالزجاج,قطر ¾ بوصة مجلفن سمك ٢،٦٥ مم,122.86,EGP,compressed.md
+Diameter 1 inch galvanized thickness 2.50 mm,Glassالزجاج,قطر 1 بوصة مجلفن سمك ٢،٥ مم,148.33,EGP,compressed.md
+Core & Shell (Red Brick),General,unit,7250.0,EGP,egypt-construction-costs-2025.md
+Semi-Finished (Plastered),General,unit,10000.0,EGP,egypt-construction-costs-2025.md
+Standard Finishing,General,unit,17500.0,EGP,egypt-construction-costs-2025.md
+Luxury Finishing,General,unit,25000.0,EGP,egypt-construction-costs-2025.md
+Super Deluxe Finishing,General,unit,40000.0,EGP,egypt-construction-costs-2025.md
+Ezz Steel,General,ton,39100.0,EGP,egypt-construction-costs-2025.md
+Suez Steel,General,ton,36550.0,EGP,egypt-construction-costs-2025.md
+Beshay Steel,General,ton,37750.0,EGP,egypt-construction-costs-2025.md
+El-Marakby Steel,General,ton,35500.0,EGP,egypt-construction-costs-2025.md
+Garhy Steel,General,ton,35750.0,EGP,egypt-construction-costs-2025.md
+Ashry Steel,General,ton,33550.0,EGP,egypt-construction-costs-2025.md
+Misr Steel,General,ton,33150.0,EGP,egypt-construction-costs-2025.md
+El-Komy Steel,General,ton,33350.0,EGP,egypt-construction-costs-2025.md
+El-Ola Steel,General,ton,32550.0,EGP,egypt-construction-costs-2025.md
+Ordinary Portland Cement (OPC 42.5),General,kg,4000.0,EGP,egypt-construction-costs-2025.md
+Portland Pozzolana Cement (PPC),General,kg,3800.0,EGP,egypt-construction-costs-2025.md
+Rapid Hardening Cement,General,kg,4350.0,EGP,egypt-construction-costs-2025.md
+Sulfate Resisting Cement,General,kg,4200.0,EGP,egypt-construction-costs-2025.md
+White Cement,General,kg,7250.0,EGP,egypt-construction-costs-2025.md
+Unskilled Labor,General,unit,325.0,EGP,egypt-construction-costs-2025.md
+Semi-Skilled Labor,General,unit,450.0,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Mason),General,unit,575.0,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Carpenter),General,unit,575.0,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Plumber),General,unit,575.0,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Electrician),General,unit,625.0,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Painter),General,unit,525.0,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Tiler),General,unit,575.0,EGP,egypt-construction-costs-2025.md
+Steel Fixer (Rebar),General,unit,650.0,EGP,egypt-construction-costs-2025.md
+Foreman/Supervisor,General,unit,800.0,EGP,egypt-construction-costs-2025.md
+Site Engineer,General,unit,1150.0,EGP,egypt-construction-costs-2025.md
+Project Manager,General,unit,1850.0,EGP,egypt-construction-costs-2025.md
+Excavation,General,unit,150.0,EGP,egypt-construction-costs-2025.md
+Lean concrete (blinding),General,m³,900.0,EGP,egypt-construction-costs-2025.md
+Foundation concrete (C30),General,m³,2200.0,EGP,egypt-construction-costs-2025.md
+Steel reinforcement,General,ton,38500.0,EGP,egypt-construction-costs-2025.md
+Formwork,General,m²,100.0,EGP,egypt-construction-costs-2025.md
+Concrete columns (C30),General,m³,2400.0,EGP,egypt-construction-costs-2025.md
+Steel for columns,General,ton,38500.0,EGP,egypt-construction-costs-2025.md
+Concrete beams,General,m³,2400.0,EGP,egypt-construction-costs-2025.md
+Steel for beams,General,ton,38500.0,EGP,egypt-construction-costs-2025.md
+Slab concrete (hollow block),General,m³,2200.0,EGP,egypt-construction-costs-2025.md
+Steel for slabs,General,ton,38500.0,EGP,egypt-construction-costs-2025.md
+Formwork & scaffolding,General,unit,120.0,EGP,egypt-construction-costs-2025.md
+Cement for masonry,General,ton,4100.0,EGP,egypt-construction-costs-2025.md
+Sand for masonry,General,m³,275.0,EGP,egypt-construction-costs-2025.md
+Labor (masonry),General,unit,575.0,EGP,egypt-construction-costs-2025.md
+Insulation layer,General,unit,120.0,EGP,egypt-construction-costs-2025.md
+Screed/Protection layer,General,m³,1400.0,EGP,egypt-construction-costs-2025.md
+Rough plumbing (pipes),General,lot,30000.0,EGP,egypt-construction-costs-2025.md
+Rough electrical (conduits),General,lot,25000.0,EGP,egypt-construction-costs-2025.md
+Drainage system,General,lot,20000.0,EGP,egypt-construction-costs-2025.md
+Cement plaster (walls),General,unit,280.0,EGP,egypt-construction-costs-2025.md
+Cement plaster (ceilings),General,unit,100.0,EGP,egypt-construction-costs-2025.md
+Skim coat finish,General,unit,380.0,EGP,egypt-construction-costs-2025.md
+Labor,General,unit,625.0,EGP,egypt-construction-costs-2025.md
+External cement plaster,General,unit,120.0,EGP,egypt-construction-costs-2025.md
+Acrylic plaster/finish,General,unit,120.0,EGP,egypt-construction-costs-2025.md
+Labor,General,unit,675.0,EGP,egypt-construction-costs-2025.md
+Cables & wiring,General,lot,24000.0,EGP,egypt-construction-costs-2025.md
+Labor (electrician),General,unit,675.0,EGP,egypt-construction-costs-2025.md
+Drainage pipes (PVC),General,lot,15000.0,EGP,egypt-construction-costs-2025.md
+Labor (plumber),General,unit,675.0,EGP,egypt-construction-costs-2025.md
+Aluminum windows,General,m²,1500.0,EGP,egypt-construction-costs-2025.md
+Ceramic tiles (living/bedrooms),General,m²,150.0,EGP,egypt-construction-costs-2025.md
+Ceramic tiles (kitchen/bathrooms),General,m²,175.0,EGP,egypt-construction-costs-2025.md
+Skirting,General,unit,50.0,EGP,egypt-construction-costs-2025.md
+Labor (tiling),General,unit,625.0,EGP,egypt-construction-costs-2025.md
+Underlayment/leveling,General,unit,110.0,EGP,egypt-construction-costs-2025.md
+Emulsion paint (standard),General,unit,380.0,EGP,egypt-construction-costs-2025.md
+Labor (painting),General,unit,575.0,EGP,egypt-construction-costs-2025.md
+Kitchen cabinets (MDF),General,unit,4250.0,EGP,egypt-construction-costs-2025.md
+Countertop (Formica),General,unit,650.0,EGP,egypt-construction-costs-2025.md
+Wall tiles (backsplash),General,m²,175.0,EGP,egypt-construction-costs-2025.md
+Bathroom accessories,General,unit,2000.0,EGP,egypt-construction-costs-2025.md
+Tiles (walls & floor),General,m²,215.0,EGP,egypt-construction-costs-2025.md
+Core & Shell,General,m²,8750.0,EGP,egypt-construction-costs-2025.md
+Semi-Finished,General,m²,12250.0,EGP,egypt-construction-costs-2025.md
+Standard Finishing,General,m²,21500.0,EGP,egypt-construction-costs-2025.md
+Luxury Finishing,General,m²,32500.0,EGP,egypt-construction-costs-2025.md
+Super Deluxe,General,m²,55000.0,EGP,egypt-construction-costs-2025.md
+Core & Shell,General,unit,10500.0,EGP,egypt-construction-costs-2025.md
+Semi-Finished,General,unit,14000.0,EGP,egypt-construction-costs-2025.md
+Standard Finish,General,unit,26000.0,EGP,egypt-construction-costs-2025.md
+Luxury Finish,General,unit,40000.0,EGP,egypt-construction-costs-2025.md
+Super Deluxe,General,unit,75000.0,EGP,egypt-construction-costs-2025.md
+Round Iron 16 mm,Glassالزجاج,ton,39352.75,EGP,data1.md
+Round Iron 13 mm,Glassالزجاج,ton,39352.75,EGP,data1.md
+Round Iron 10 mm,Glassالزجاج,ton,39352.75,EGP,data1.md
+Ordinary portland cement packed in a sack,Glassالزجاج,50 kg,140.21,EGP,data1.md
+White cement packed in a sack,Glassالزجاج,50 kg,189.12,EGP,data1.md
+Iron cement packed in a sack,Glassالزجاج,50 kg,89.42,EGP,data1.md
+Solid brick 25*12*6 cm,Glassالزجاج,1000 units,1785.24,EGP,data1.md
+Hollow brick 25*12*6 cm,Glassالزجاج,1000 units,1732.48,EGP,data1.md
+Hollow brick 40*20*12 cm,Glassالزجاج,1000 units,2071.82,EGP,data1.md
+Sand,Glassالزجاج,m³,225.81,EGP,data1.md
+Gravel,Glassالزجاج,m³,300.91,EGP,data1.md
+Elsen1,Glassالزجاج,m³,336.28,EGP,data1.md
+Elsen2,Glassالزجاج,m³,294.74,EGP,data1.md
+No. (1) gypsum packed in sacks,Glassالزجاج,ton,1940.67,EGP,data1.md
+Beech wood from 100-170 cm,Glassالزجاج,m³,22266.67,EGP,data1.md
+Sweden wood no (1),Glassالزجاج,m³,16942.54,EGP,data1.md
+Blank wood no (1),Glassالزجاج,m³,13151.65,EGP,data1.md
+Flat engraved glass 3 mm white,Glassالزجاج,flat meter,235.81,EGP,data1.md
+Flat engraved glass 4 mm white,Glassالزجاج,flat meter,273.75,EGP,data1.md
+Ordinary tiles 20*20*2 cm,Glassالزجاج,عادي ٢×٢٠ سم × ٢٠ سم,78.66,EGP,data1.md
+Cement Tiles 20*20*2 cm,Glassالزجاج,بلاط اسمنتي ٢٠ سم × ٢٠ سم,58.88,EGP,data1.md
+Floor ceramic first class30*20 thickness 10 mm,Glassالزجاج,ســيراميك أرضيــة درجة اوــلي ٣٠ × ٣٠ سم,138.93,EGP,data1.md
+Floor ceramic first class30*20 thickness 12 mm,Glassالزجاج,ســيراميك حوائط درجة اوــلي ٣٠ × ٣٠ سم,136.61,EGP,data1.md
+Slick foundry 3 cm,Glassالزجاج,حاتمية ساقـلة ٣ سم,514.91,EGP,data1.md
+Rose Granite 3 Cm,Glassالزجاج,جرانيت روز ٣ سم,838.06,EGP,data1.md
+Diameter ½ inch,Glassالزجاج,قطر ½ بوصة,57.75,EGP,data1.md
+Diameter ¾ inch,Glassالزجاج,قطر ¾ بوصة,63.56,EGP,data1.md
+Diameter ¾ inchgalvanized thickness 2.65 mm,Glassالزجاج,قطر ¾ بوصة مجلفن سمك ٢،٦٥ مم,122.86,EGP,data1.md
+Diameter 1 inch galvanized thickness 2.50 mm,Glassالزجاج,قطر 1 بوصة مجلفن سمك ٢،٥ مم,148.33,EGP,data1.md
+engineers,the ability to waste management,unit,100.0,EGP,standards.md
+contractors,the ability to waste management,unit,100.0,EGP,standards.md
+Final Consumption,General,unit,1903.2,EGP,august_data.md
+Investment & Inventory,General,unit,299.2,EGP,august_data.md
+General Number /الرقم العام,General,unit,350.99,EGP,august_data.md
+ECP 203,General,unit,2020.0,EGP,construction_finishing_knowledge_base_egypt.md
+ECP 201,General,unit,2011.0,EGP,construction_finishing_knowledge_base_egypt.md
+ECP 205,General,unit,2001.0,EGP,construction_finishing_knowledge_base_egypt.md

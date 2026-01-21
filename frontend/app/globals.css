@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Arabic font support - use system fonts that support Arabic */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+  --font-arabic: 'Noto Sans Arabic', 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+}
+
+/* Global font stack with Arabic support */
+html {
+  font-family: 'Inter', var(--font-arabic), system-ui, sans-serif;
+}
+
+/* Ensure inputs render Arabic correctly */
+input, textarea {
+  font-family: inherit;
+  /* Prevent ligature issues with Arabic */
+  font-feature-settings: "liga" 0;
+}
+
+/* RTL support for Arabic content */
+[dir="rtl"],
+*:lang(ar) {
+  font-family: var(--font-arabic), sans-serif;
+  text-align: right;
+}
+
+/* Arabic numerals styling */
+.arabic-numerals {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}

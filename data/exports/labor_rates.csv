@@ -1,0 +1,11 @@
+role,hourly_rate,currency,source_document
+Unskilled Labor,40.625,EGP,egypt-construction-costs-2025.md
+Semi-Skilled Labor,56.25,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Mason),71.875,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Carpenter),71.875,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Plumber),71.875,EGP,egypt-construction-costs-2025.md
+Skilled Worker (Electrician),78.125,EGP,egypt-construction-costs-2025.md
+Foreman/Supervisor,100.0,EGP,egypt-construction-costs-2025.md
+Site Engineer,143.75,EGP,egypt-construction-costs-2025.md
+Project Manager,231.25,EGP,egypt-construction-costs-2025.md
+engineers,55.56,EGP,standards.md

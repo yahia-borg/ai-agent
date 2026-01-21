@@ -754,8 +754,8 @@ async def export_quotation_pdf(quotation_id: str) -> str:
     - quotation_id: The quotation ID from current context (must have cost_breakdown)
     
     OUTPUT FORMAT:
-    - Returns: JSON with success status, message, filepath, and quotation_id
-    - Format: {"success": true, "message": "PDF generated: filename.pdf", "filepath": "...", "quotation_id": "..."}
+    - Returns: JSON with success status, message, and quotation_id
+    - Format: {"success": true, "message": "PDF generated successfully...", "quotation_id": "..."}
     - On error: Returns JSON with error message
     
     STATE TRANSITIONS:
@@ -800,15 +800,10 @@ async def export_quotation_pdf(quotation_id: str) -> str:
         with open(filepath, "wb") as f:
             f.write(pdf_buffer.getvalue())
 
-        # Return success with download URL
-        # We provide both the relative URL and a clear message for the supervisor
-        download_url = f"/api/v1/quotations/{quotation_id}/download?format=pdf"
-        
+        # Return success message (no download URL - user can download via UI buttons)
         return json.dumps({
             "success": True,
-            "message": f"Professional PDF generated: {filename}",
-            "download_url": download_url,
-            "instructions": f"Please provide this exact link to the user: {download_url}",
+            "message": f"Professional PDF generated successfully. The quotation is ready for download.",
             "quotation_id": quotation_id
         }, ensure_ascii=False)
 
@@ -835,8 +830,8 @@ async def export_quotation_excel(quotation_id: str) -> str:
     - quotation_id: The quotation ID from current context (must have cost_breakdown)
     
     OUTPUT FORMAT:
-    - Returns: JSON with success status, message, filepath, and quotation_id
-    - Format: {"success": true, "message": "Excel generated: filename.xlsx", "filepath": "...", "quotation_id": "..."}
+    - Returns: JSON with success status, message, and quotation_id
+    - Format: {"success": true, "message": "Excel generated successfully...", "quotation_id": "..."}
     - On error: Returns JSON with error message
     
     STATE TRANSITIONS:
@@ -881,14 +876,10 @@ async def export_quotation_excel(quotation_id: str) -> str:
         with open(filepath, "wb") as f:
             f.write(excel_buffer.getvalue())
 
-        # Return success with download URL
-        download_url = f"/api/v1/quotations/{quotation_id}/download?format=excel"
-        
+        # Return success message (no download URL - user can download via UI buttons)
         return json.dumps({
             "success": True,
-            "message": f"Professional Excel generated: {filename}",
-            "download_url": download_url,
-            "instructions": f"Please provide this exact link to the user: {download_url}",
+            "message": f"Professional Excel generated successfully. The quotation is ready for download.",
             "quotation_id": quotation_id
         }, ensure_ascii=False)
 

@@ -16,11 +16,19 @@ logging.basicConfig(
 from contextlib import asynccontextmanager
 from app.services.qdrant_service import get_qdrant_service
 from app.core.langsmith_config import get_langsmith_callbacks
+from app.core.environment import validate_on_startup
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load embedding model on startup
+    # Validate environment variables on startup
     logger = logging.getLogger(__name__)
+    try:
+        validate_on_startup()
+    except ValueError as e:
+        logger.error(f"Startup validation failed: {e}")
+        raise
+    
+    # Load embedding model on startup
     logger.info("Loading embedding model on startup...")
     get_qdrant_service()
     

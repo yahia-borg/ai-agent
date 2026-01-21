@@ -1,1 +1,13 @@
 env/
+*.md
+Ya/
+.cursor/
+.claude/
+.agent/
+ai_models/
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python

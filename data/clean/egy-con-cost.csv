@@ -1,0 +1,161 @@
+Category,Subcategory,Item,Specification,Unit,Price Range (EGP),Notes,Quality Grade,Region Applicable,Last Updated
+Document Info,Metadata,Document Title,N/A,N/A,N/A,Egypt Construction Costs & Materials Guide 2025,N/A,N/A,December 2025
+Document Info,Metadata,Currency,N/A,N/A,N/A,Egyptian Pound (EGP),N/A,N/A,December 2025
+
+Construction Stages,Cost per m²,Core & Shell (Red Brick),Residential Apartments,m²,"6,000 - 8,500",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Core & Shell (Red Brick),Residential Villas,m²,"7,500 - 10,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Core & Shell (Red Brick),Commercial Buildings,m²,"9,000 - 12,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Semi-Finished (Plastered),Residential Apartments,m²,"8,500 - 11,500",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Semi-Finished (Plastered),Residential Villas,m²,"10,500 - 14,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Semi-Finished (Plastered),Commercial Buildings,m²,"12,000 - 16,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Economic Finishing,Residential Apartments,m²,"11,500 - 15,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Economic Finishing,Residential Villas,m²,"14,000 - 18,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Economic Finishing,Commercial Buildings,m²,"16,000 - 22,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Standard Finishing,Residential Apartments,m²,"15,000 - 20,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Standard Finishing,Residential Villas,m²,"18,000 - 25,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Standard Finishing,Commercial Buildings,m²,"22,000 - 30,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Luxury Finishing,Residential Apartments,m²,"20,000 - 30,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Luxury Finishing,Residential Villas,m²,"25,000 - 40,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Luxury Finishing,Commercial Buildings,m²,"30,000 - 50,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Super Deluxe Finishing,Residential Apartments,m²,"30,000 - 50,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Super Deluxe Finishing,Residential Villas,m²,"40,000 - 70,000",Land cost NOT included,N/A,N/A,December 2025
+Construction Stages,Cost per m²,Super Deluxe Finishing,Commercial Buildings,m²,"50,000 - 100,000",Land cost NOT included,N/A,N/A,December 2025
+
+Building Materials,Steel Reinforcement,Ezz Steel,N/A,ton,"38,200 - 40,000",Relatively stable with minor fluctuations,Premium,N/A,December 2025
+Building Materials,Steel Reinforcement,Suez Steel,N/A,ton,"35,000 - 38,100",Relatively stable with minor fluctuations,High Quality,N/A,December 2025
+Building Materials,Steel Reinforcement,Egyptian Steel,N/A,ton,"38,000 - 38,100",Relatively stable with minor fluctuations,High Quality,N/A,December 2025
+Building Materials,Steel Reinforcement,Beshay Steel,N/A,ton,"37,000 - 38,500",Relatively stable with minor fluctuations,High Quality,N/A,December 2025
+Building Materials,Steel Reinforcement,El-Marakby Steel,N/A,ton,"35,000 - 36,000",Relatively stable with minor fluctuations,Standard,N/A,December 2025
+Building Materials,Steel Reinforcement,Garhy Steel,N/A,ton,"35,500 - 36,000",Relatively stable with minor fluctuations,Standard,N/A,December 2025
+Building Materials,Steel Reinforcement,Ashry Steel,N/A,ton,"32,100 - 35,000",Relatively stable with minor fluctuations,Standard,N/A,December 2025
+Building Materials,Steel Reinforcement,Misr Steel,N/A,ton,"31,600 - 34,700",Relatively stable with minor fluctuations,Economy,N/A,December 2025
+Building Materials,Steel Reinforcement,El-Komy Steel,N/A,ton,"32,500 - 34,200",Relatively stable with minor fluctuations,Economy,N/A,December 2025
+Building Materials,Steel Reinforcement,El-Ola Steel,N/A,ton,"31,600 - 33,500",Relatively stable with minor fluctuations,Economy,N/A,December 2025
+
+Building Materials,Steel Quantities,Separate foundations,Without mid-beams,kg/m³,"50 - 60",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,Separate foundations,With armed mid-beams,kg/m³,"90 - 100",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,Separate mid-beams,N/A,kg/m³,"140 - 160",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,Concrete columns,N/A,kg/m³,"160 - 190",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,Solid slab ceiling,N/A,kg/m³,"90 - 100",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,Hollow block ceiling,N/A,kg/m³,"80 - 100",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,One-way ribbed slab,N/A,kg/m³,"110 - 120",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,Flat slab,N/A,kg/m³,"140 - 160",N/A,N/A,N/A,December 2025
+Building Materials,Steel Quantities,Armed slab,Without inverted beams,kg/m³,"90 - 100",N/A,N/A,N/A,December 2025
+
+Building Materials,Cement,Ordinary Portland Cement,OPC 42.5,ton,"3,800 - 4,200",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,Ordinary Portland Cement,OPC 42.5,50kg bag,"95 - 105",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,Portland Pozzolana Cement,PPC,ton,"3,600 - 4,000",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,Portland Pozzolana Cement,PPC,50kg bag,"90 - 100",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,Rapid Hardening Cement,N/A,ton,"4,200 - 4,500",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,Rapid Hardening Cement,N/A,50kg bag,"105 - 113",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,Sulfate Resisting Cement,N/A,ton,"4,000 - 4,400",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,Sulfate Resisting Cement,N/A,50kg bag,"100 - 110",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,White Cement,N/A,ton,"6,500 - 8,000",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement,White Cement,N/A,50kg bag,"163 - 200",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+
+Building Materials,Cement Brands,Lafarge Cement,N/A,ton,3,900,Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement Brands,Suez Cement,N/A,ton,"3,800 - 4,000",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement Brands,Assiut Cement,N/A,ton,"3,720 - 3,900",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement Brands,El Nasr Cement,N/A,ton,"3,800 - 4,000",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+Building Materials,Cement Brands,Sinai Cement,N/A,ton,"3,700 - 3,900",Increased by 40% in May 2025, now stable,N/A,N/A,December 2025
+
+Building Materials,Concrete & Aggregates,Ready-Mix Concrete,C25,m³,"1,800 - 2,200",N/A,N/A,N/A,December 2025
+Building Materials,Concrete & Aggregates,Ready-Mix Concrete,C30,m³,"2,000 - 2,400",N/A,N/A,N/A,December 2025
+Building Materials,Concrete & Aggregates,Ready-Mix Concrete,C35,m³,"2,200 - 2,600",N/A,N/A,N/A,December 2025
+Building Materials,Concrete & Aggregates,Ready-Mix Concrete,C40,m³,"2,400 - 2,800",N/A,N/A,N/A,December 2025
+Building Materials,Concrete & Aggregates,Sand,Clean,m³,"200 - 350",N/A,N/A,N/A,December 2025
+Building Materials,Concrete & Aggregates,Gravel/Crushed Stone,N/A,m³,"250 - 400",N/A,N/A,N/A,December 2025
+Building Materials,Concrete & Aggregates,Clean Fill,N/A,m³,"80 - 150",N/A,N/A,N/A,December 2025
+
+Building Materials,Bricks & Blocks,Red Brick,25x12x6 cm,1000 units,"3,500 - 4,500",N/A,N/A,N/A,December 2025
+Building Materials,Bricks & Blocks,Hollow Concrete Block,20cm,m²,"45 - 65",N/A,N/A,N/A,December 2025
+Building Materials,Bricks & Blocks,Hollow Concrete Block,15cm,m²,"40 - 55",N/A,N/A,N/A,December 2025
+Building Materials,Bricks & Blocks,Hollow Concrete Block,10cm,m²,"35 - 48",N/A,N/A,N/A,December 2025
+Building Materials,Bricks & Blocks,Solid Concrete Block,N/A,m²,"55 - 75",N/A,N/A,N/A,December 2025
+Building Materials,Bricks & Blocks,Autoclaved Aerated Concrete,AAC,m³,"2,200 - 2,800",N/A,N/A,N/A,December 2025
+Building Materials,Bricks & Blocks,Insulated Blocks,N/A,m²,"80 - 120",N/A,N/A,N/A,December 2025
+
+Building Materials,Plastering & Finishing,Cement Plaster,Manual,m²,"45 - 65",N/A,N/A,N/A,December 2025
+Building Materials,Plastering & Finishing,Cement Plaster,Machine,m²,"55 - 75",N/A,N/A,N/A,December 2025
+Building Materials,Plastering & Finishing,Gypsum Plaster,N/A,m²,"40 - 60",N/A,N/A,N/A,December 2025
+Building Materials,Plastering & Finishing,Acrylic Plaster,External,m²,"80 - 120",N/A,N/A,N/A,December 2025
+Building Materials,Plastering & Finishing,Skim Coat,Final Layer,m²,"25 - 40",N/A,N/A,N/A,December 2025
+
+Building Materials,Floor Tiles & Finishes,Ceramic Tiles,Economy,m²,"80 - 150",N/A,Economy,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Ceramic Tiles,Standard,m²,"150 - 250",N/A,Standard,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Ceramic Tiles,Premium,m²,"250 - 400",N/A,Premium,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Porcelain Tiles,Standard,m²,"200 - 350",N/A,Standard,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Porcelain Tiles,Premium,m²,"350 - 600",N/A,Premium,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Porcelain Tiles,Luxury,m²,"600 - 1,200",N/A,Luxury,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Granite,Local,m²,"400 - 700",N/A,Standard,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Granite,Imported,m²,"700 - 1,500",N/A,Premium,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Marble,Local,m²,"500 - 900",N/A,Standard,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Marble,Imported,m²,"900 - 2,500",N/A,Premium,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Parquet/Laminate,Economy,m²,"150 - 250",N/A,Economy,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Parquet/Laminate,Standard,m²,"250 - 450",N/A,Standard,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Hardwood Flooring,Premium,m²,"600 - 1,500",N/A,Premium,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Vinyl/LVT Flooring,Standard,m²,"180 - 350",N/A,Standard,N/A,December 2025
+Building Materials,Floor Tiles & Finishes,Vinyl/LVT Flooring,Premium,m²,"350 - 700",N/A,Premium,N/A,December 2025
+
+Building Materials,Paint & Coating,Emulsion Paint,Economy,m²,"15 - 25",Includes material and labor for 2-3 coats,Economy,N/A,December 2025
+Building Materials,Paint & Coating,Emulsion Paint,Standard,m²,"25 - 40",Includes material and labor for 2-3 coats,Standard,N/A,December 2025
+Building Materials,Paint & Coating,Emulsion Paint,Premium,m²,"40 - 65",Includes material and labor for 2-3 coats,Premium,N/A,December 2025
+Building Materials,Paint & Coating,Oil-Based Paint,Standard,m²,"30 - 50",Includes material and labor for 2-3 coats,Standard,N/A,December 2025
+Building Materials,Paint & Coating,Oil-Based Paint,Premium,m²,"50 - 80",Includes material and labor for 2-3 coats,Premium,N/A,December 2025
+Building Materials,Paint & Coating,Plastic Paint,Economy,m²,"20 - 35",Includes material and labor for 2-3 coats,Economy,N/A,December 2025
+Building Materials,Paint & Coating,Plastic Paint,Standard,m²,"35 - 55",Includes material and labor for 2-3 coats,Standard,N/A,December 2025
+Building Materials,Paint & Coating,Decorative Paint,Premium,m²,"60 - 120",Includes material and labor for 2-3 coats,Premium,N/A,December 2025
+Building Materials,Paint & Coating,External Paint,Weather-resistant Standard,m²,"40 - 70",Includes material and labor for 2-3 coats,Standard,N/A,December 2025
+Building Materials,Paint & Coating,External Paint,Weather-resistant Premium,m²,"70 - 120",Includes material and labor for 2-3 coats,Premium,N/A,December 2025
+
+Labor Costs,Daily Wages,Unskilled Labor,N/A,day,"250 - 400",Monthly equivalent: 6,000 - 10,000 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Semi-Skilled Labor,N/A,day,"350 - 550",Monthly equivalent: 8,500 - 13,500 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Skilled Worker,Mason,day,"450 - 700",Monthly equivalent: 11,000 - 17,500 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Skilled Worker,Carpenter,day,"450 - 700",Monthly equivalent: 11,000 - 17,500 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Skilled Worker,Plumber,day,"450 - 700",Monthly equivalent: 11,000 - 17,500 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Skilled Worker,Electrician,day,"500 - 750",Monthly equivalent: 12,500 - 18,750 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Skilled Worker,Painter,day,"400 - 650",Monthly equivalent: 10,000 - 16,250 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Skilled Worker,Tiler,day,"450 - 700",Monthly equivalent: 11,000 - 17,500 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Steel Fixer,Rebar,day,"500 - 800",Monthly equivalent: 12,500 - 20,000 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Foreman/Supervisor,N/A,day,"600 - 1,000",Monthly equivalent: 15,000 - 25,000 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Site Engineer,N/A,day,"800 - 1,500",Monthly equivalent: 20,000 - 37,500 EGP,N/A,N/A,December 2025
+Labor Costs,Daily Wages,Project Manager,N/A,day,"1,200 - 2,500",Monthly equivalent: 30,000 - 62,500 EGP,N/A,N/A,December 2025
+
+Regional Variations,Price Multipliers,Cairo,New Administrative Capital,multiplier,"1.3 - 1.5",Highest prices, premium location,N/A,Cairo,December 2025
+Regional Variations,Price Multipliers,Cairo,5th Settlement, Sheikh Zayed,multiplier,"1.2 - 1.4",High-end areas,N/A,Cairo,December 2025
+Regional Variations,Price Multipliers,Cairo,Downtown, Heliopolis,multiplier,"1.1 - 1.3",Established areas,N/A,Cairo,December 2025
+Regional Variations,Price Multipliers,Cairo,Outer areas,multiplier,"1.0 - 1.1",More affordable,N/A,Cairo,December 2025
+Regional Variations,Price Multipliers,Giza,6th October, Sheikh Zayed,multiplier,"1.1 - 1.3",Growing areas,N/A,Giza,December 2025
+Regional Variations,Price Multipliers,Alexandria,N/A,multiplier,"0.9 - 1.1",Coastal city premium,N/A,Alexandria,December 2025
+Regional Variations,Price Multipliers,North Coast,N/A,multiplier,"1.2 - 1.5",Seasonal premium,N/A,North Coast,December 2025
+Regional Variations,Price Multipliers,Hurghada/Red Sea,N/A,multiplier,"1.0 - 1.2",Tourist areas,N/A,Red Sea,December 2025
+Regional Variations,Price Multipliers,Delta Cities,N/A,multiplier,"0.8 - 0.95",Lower labor & transport costs,N/A,Delta,December 2025
+Regional Variations,Price Multipliers,Upper Egypt,N/A,multiplier,"0.75 - 0.9",Lowest costs,N/A,Upper Egypt,December 2025
+Regional Variations,Price Multipliers,New Cities,Obour, Badr,multiplier,"0.85 - 1.0",Developing areas,N/A,New Cities,December 2025
+
+Villa Specifics,Additional Items,Landscaping,Basic per 100m²,N/A,"30,000 - 60,000",N/A,N/A,N/A,December 2025
+Villa Specifics,Additional Items,Landscaping,Premium per 100m²,N/A,"60,000 - 150,000",N/A,N/A,N/A,December 2025
+Villa Specifics,Additional Items,Swimming Pool,8x4m (basic),N/A,"150,000 - 300,000",N/A,N/A,N/A,December 2025
+Villa Specifics,Additional Items,Swimming Pool,10x5m (premium),N/A,"300,000 - 600,000",N/A,N/A,N/A,December 2025
+Villa Specifics,Additional Items,Boundary Wall,2.5m high,linear m,"800 - 1,500",N/A,N/A,N/A,December 2025
+Villa Specifics,Additional Items,Main Gate,Standard,N/A,"15,000 - 35,000",N/A,N/A,N/A,December 2025
+Villa Specifics,Additional Items,Main Gate,Premium/Automated,N/A,"35,000 - 80,000",N/A,N/A,N/A,December 2025
+
+Commercial Buildings,Office Specifics,Suspended Ceiling,Mineral fiber tiles,m²,"200 - 350",N/A,N/A,N/A,December 2025
+Commercial Buildings,Office Specifics,Suspended Ceiling,Gypsum board,m²,"250 - 450",N/A,N/A,N/A,December 2025
+Commercial Buildings,Office Specifics,Raised Flooring,For cable management,m²,"400 - 700",N/A,N/A,N/A,December 2025
+Commercial Buildings,Office Specifics,Fire Fighting System,Sprinklers, alarms, extinguishers,m²,"300 - 600",N/A,N/A,N/A,December 2025
+Commercial Buildings,Office Specifics,HVAC (Central),VRF or chiller system,m²,"800 - 1,500",N/A,N/A,N/A,December 2025
+Commercial Buildings,Office Specifics,Emergency Lighting,Exit signs, emergency lights,m²,"100 - 200",N/A,N/A,N/A,December 2025
+
+Quick Reference,Cement Requirements,Foundation,N/A,kg/m²,"120 - 150",N/A,N/A,N/A,December 2025
+Quick Reference,Cement Requirements,Columns & beams,N/A,kg/m²,"200 - 250",N/A,N/A,N/A,December 2025
+Quick Reference,Cement Requirements,Slab,N/A,kg/m²,"80 - 100",N/A,N/A,N/A,December 2025
+Quick Reference,Cement Requirements,Brick masonry,1 brick thick,kg/m²,"30 - 40",N/A,N/A,N/A,December 2025
+Quick Reference,Cement Requirements,Plastering,12mm thick,kg/m²,"8 - 12",N/A,N/A,N/A,December 2025
+
+Quick Reference,Steel Requirements,Low-rise residential,3-4 floors,kg/m²,"70 - 90",N/A,N/A,N/A,December 2025
+Quick Reference,Steel Requirements,Mid-rise residential,5-8 floors,kg/m²,"90 - 120",N/A,N/A,N/A,December 2025
+Quick Reference,Steel Requirements,High-rise residential,9+ floors,kg/m²,"120 - 160",N/A,N/A,N/A,December 2025
+Quick Reference,Steel Requirements,Commercial buildings,N/A,kg/m²,"100 - 150",N/A,N/A,N/A,December 2025
+Quick Reference,Steel Requirements,Warehouses,Light,kg/m²,"40 - 60",N/A,N/A,N/A,December 2025

@@ -1,0 +1,97 @@
+Document Section,Category,Subcategory,Content (English),Content (Arabic),Value,Unit,Period/Date,Comparison Period,Change/Percentage,Source,Page Reference
+
+Header,Metadata,Bulletin Info,Informatics monthly statistical bulletin,المعلوماتية نشرة إحصائية شهرية,N/A,N/A,August 2025,Issue 162,N/A,N/A,Page 1
+Header,Metadata,Agency,Central Agency for Public Mobilization and Statistics (CAPMAS),الجهاز المركزي للتعبئة العامة و الإحصاء,N/A,N/A,N/A,N/A,N/A,N/A,Page 1
+Header,Metadata,Issue Number,162,(١٦٢),N/A,N/A,August 2025,N/A,N/A,N/A,Page 1
+
+Table of Contents,Sections,Definitions,Definitions,تعريفات,I-IV,N/A,N/A,N/A,N/A,N/A,Page 5
+Table of Contents,Sections,Macroeconomic Indicators,First: Macroeconomic Indicators,أولاً: مؤشرات الإقتصاد الكلي,1-28,N/A,N/A,N/A,N/A,N/A,Page 5
+Table of Contents,Sections,Real Economy,Real Economy Indicators,مؤشرات الاقتصاد الحقيقي,1-9,N/A,N/A,N/A,N/A,N/A,Page 5
+Table of Contents,GDP Data,A,GDP by resources and uses at market prices (current prices),الناتج المحلي بحسب الموارد والإستخدامات بأسعار السوق (الأسعار الجارية),1,N/A,N/A,N/A,N/A,N/A,Page 5
+Table of Contents,GDP Data,B,GDP with production factors cost by economic sectors,الناتج المحلى الإجمالى بتكلفة عــوامل الإنتاج موزعا بحسب القطاعات الاقتصادية,1,N/A,N/A,N/A,N/A,N/A,Page 5
+Table of Contents,Sections,Total Investments,C,Total investments,إجمالي الإستثمارات,2,N/A,N/A,N/A,N/A,N/A,Page 5
+Table of Contents,Sections,Economic Sectors Performance,D,Performance indicators of some economic sectors,مؤشرات أداء بعض القطاعات الاقتصادية,3,N/A,N/A,N/A,N/A,N/A,Page 5
+
+Definitions,Economic Terms,GDP,Gross Domestic Production (GDP),الناتج المحلي,N/A,N/A,N/A,N/A,N/A,N/A,Page 8
+Definitions,Economic Terms,Manufacturing Index,Manufacturing and Extractive Manufacturing Index,الرقم القياسى للصناعات التحويلية والاستخراجية,N/A,N/A,N/A,N/A,N/A,N/A,Page 8
+Definitions,Economic Terms,CPI,Consumer price Index (CPI),الأرقام القياسية لأسعار المستهلكين,N/A,N/A,N/A,N/A,N/A,N/A,Page 8
+Definitions,Economic Terms,PPI,Producer Price Index (PPI),الرقم القياسى لأسعار المنتجين,N/A,N/A,N/A,N/A,N/A,N/A,Page 8
+Definitions,Economic Terms,Inflation,Inflation Rate,معدل التضخم,N/A,N/A,N/A,N/A,N/A,N/A,Page 10
+Definitions,Economic Terms,BoP,Balance of Payments,ميزان المدفوعات,N/A,N/A,N/A,N/A,N/A,N/A,Page 10
+Definitions,Economic Terms,Current Account,Current Account,حساب المعاملات الجارية,N/A,N/A,N/A,N/A,N/A,N/A,Page 10
+Definitions,Economic Terms,Capital Account,Capital and financial account,الحساب الرأسمالي والمالي,N/A,N/A,N/A,N/A,N/A,N/A,Page 10
+
+GDP Data,Current Prices,Market Prices,GDP at current market prices,الناتج المحلي الإجمالي بسعر السوق وبالأسعار الجارية,4558.4,billion pounds,Q3 2024/2025,Q3 2023/2024,N/A,Ministry of Planning,Page 15
+GDP Data,Constant Prices,Market Prices,GDP at constant market prices,الناتج المحلي الإجمالي بسعر السوق وبالأسعار الثابتة,2088.0,billion pounds,Q3 2024/2025,Q3 2023/2024,N/A,Ministry of Planning,Page 15
+
+Sector Analysis,Real GDP,Total,Real GDP - Total,الناتج المحلي الإجمالي الحقيقي - إجمالي,1969.7,billion pounds,Q3 2024/2025,Q3 2023/2024,4.7%,Ministry of Planning,Page 15
+Sector Analysis,Real GDP,Public,Real GDP - Public sector,الناتج المحلي الإجمالي الحقيقي - القطاع العام,475.8,billion pounds,Q3 2024/2025,Q3 2023/2024,2.0%,Ministry of Planning,Page 15
+Sector Analysis,Real GDP,Private,Real GDP - Private sector,الناتج المحلي الإجمالي الحقيقي - القطاع الخاص,1493.9,billion pounds,Q3 2024/2025,Q3 2023/2024,5.7%,Ministry of Planning,Page 15
+
+GDP Components,Expenditure Approach,Final Consumption,Final consumption,الاستهلاك النهائي,1993.2,billion pounds,Q3 2024/2025,Q3 2023/2024,4.7%,Ministry of Planning,Page 15
+GDP Components,Expenditure Approach,Investment,Investment & Inventory,الاستثمار والمخزون,250.5,billion pounds,Q3 2024/2025,Q3 2023/2024,-16.0%,Ministry of Planning,Page 15
+GDP Components,Expenditure Approach,Exports,Exports,الصادرات,401.5,billion pounds,Q3 2024/2025,Q3 2023/2024,54.4%,Ministry of Planning,Page 15
+GDP Components,Expenditure Approach,Imports,Imports,الواردات,557.3,billion pounds,Q3 2024/2025,Q3 2023/2024,18.7%,Ministry of Planning,Page 15
+
+Value Added Growth,Commodity Sectors,Other Manufacturing,Other manufacturing - Value added,صناعات تحويلية اخرى - القيمة المضافة,259,037,million pounds,Q3 2024/2025,Q3 2023/2024,16.0%,Ministry of Planning,Page 15
+Value Added Growth,Commodity Sectors,Electricity,Electricity - Value added,الكهرباء - القيمة المضافة,41,658,million pounds,Q3 2024/2025,Q3 2023/2024,5.8%,Ministry of Planning,Page 15
+Value Added Growth,Commodity Sectors,Agriculture,Agriculture, forestry and hunting - Value added,الزراعة والغابات والصيد - القيمة المضافة,219,674,million pounds,Q3 2024/2025,Q3 2023/2024,4.7%,Ministry of Planning,Page 15
+
+Value Added Growth,Service Sectors,Hotels & Restaurants,Hotels & Restaurants - Value added,مطاعم و فنادق - القيمة المضافة,60,539,million pounds,Q3 2024/2025,Q3 2023/2024,23.0%,Ministry of Planning,Page 16
+Value Added Growth,Service Sectors,Financial Intermediation,Financial intermediation - Value added,الوساطة المالية - القيمة المضافة,84,105,million pounds,Q3 2024/2025,Q3 2023/2024,17.3%,Ministry of Planning,Page 16
+Value Added Growth,Service Sectors,Telecommunications,Telecommunications - Value added,الاتصالات - القيمة المضافة,68,025,million pounds,Q3 2024/2025,Q3 2023/2024,14.7%,Ministry of Planning,Page 16
+
+Public Investments,Sector Contribution,Electricity,Electricity sector contribution,مساهمة قطاع الكهرباء,16.92,%,Q3 2024/2025,Q3 2023/2024,N/A,Ministry of Planning,Page 16
+Public Investments,Sector Contribution,Water & Sewerage,Water And Sewerage contribution,مساهمة قطاع المياه والصرف الصحي,10.01,%,Q3 2024/2025,Q3 2023/2024,N/A,Ministry of Planning,Page 16
+Public Investments,Sector Contribution,Construction,Construction sector contribution,مساهمة قطاع التشييد والبناء,10.52,%,Q3 2024/2025,Q3 2023/2024,N/A,Ministry of Planning,Page 16
+
+Per Capita GDP,Annual,GDP per capita,Annual GDP per capita,نصيب الفرد من الناتج المحلي الإجمالي,130.5,thousand pounds,2023/2024,2022/2023,N/A,Ministry of Planning,Page 16
+
+Company Formation,Monthly Trend,Companies Established,Number of companies established,عدد الشركات التي تم تأسيسها,3904,count,July 2025,July 2024,17.2%,GAFI,Page 17
+
+Capital Flows,Source Breakdown,Egyptians,Egyptians capital flow,رؤوس الأموال المصريين,12720.87,million pounds,July 2025,N/A,80.0%,GAFI,Page 17
+Capital Flows,Source Breakdown,Arabs,Arabs capital flow,رؤوس الأموال العرب,1579.44,million pounds,July 2025,N/A,9.9%,GAFI,Page 17
+Capital Flows,Source Breakdown,Foreigners,Foreigners capital flow,رؤوس الأموال الأجانب,1601.53,million pounds,July 2025,N/A,10.1%,GAFI,Page 17
+
+Company Distribution,Sectors,Agriculture,Agriculture sector companies,الشركات الزراعية,2391,count,July 2025,N/A,61.24%,GAFI,Page 17
+Company Distribution,Sectors,Financing,Financing sector companies,الشركات التمويلية,523,count,July 2025,N/A,13.40%,GAFI,Page 17
+Company Distribution,Sectors,Services,Services sector companies,الشركات الخدمية,410,count,July 2025,N/A,10.50%,GAFI,Page 17
+
+Manufacturing Index,Monthly,Index Value,Monthly index of Manufacturing industries,الرقم القياسي الشهري للصناعات التحويلية والاستخراجية,119.2,index points,June 2025,June 2024,8.8%,CAPMAS,Page 17
+
+Manufacturing Activities,Growth Rates,General Number,General manufacturing index,الرقم العام للصناعات التحويلية,43.21,%,May 2025,N/A,N/A,CAPMAS,Page 18
+Manufacturing Activities,Growth Rates,Transport Equipment,Manufacture of other transport equipment,صناعة معدات النقل الأخرى,16.23,%,May 2025,N/A,N/A,CAPMAS,Page 18
+
+Suez Canal,Revenues,Monthly,Suez Canal revenues,عائدات قناة السويس,17.5,billion pounds,July 2025,July 2024,14.4%,Suez Canal Authority,Page 18
+
+Suez Canal,Vessels,Number,Number of vessels transiting,عدد السفن العابرة,1047,count,July 2025,July 2024,0.8%,Suez Canal Authority,Page 18
+Suez Canal,Vessels,Oil Tankers,Number of passing Oil Tankers,عدد ناقلات النفط العابرة,638,count,July 2025,N/A,N/A,Suez Canal Authority,Page 18
+
+Suez Canal,Tonnage,Net Tonnage,Ships net ton,الحمولة الصافية للسفن,44.9,million tons,July 2025,July 2024,6.9%,Suez Canal Authority,Page 18
+
+Petroleum,Production & Consumption,Total Production,Total petroleum production,إجمالي إنتاج البترول,4713.2,thousand tons,June 2025,June 2024,-12.7%,Ministry of Petroleum,Page 19
+Petroleum,Production & Consumption,Domestic Consumption,Total domestic consumption,الإستهلاك المحلي الإجمالي,6456.2,thousand tons,June 2025,June 2024,-5.3%,Ministry of Petroleum,Page 19
+
+Natural Gas,Production,Monthly,Natural Gas production,إنتاج الغاز الطبيعي,2569.2,thousand tons,June 2025,June 2024,19.8%,Ministry of Petroleum,Page 19
+Petroleum,Production,Crude Oil,Crude Oil, condensates and butane,البترول الخام والمكثفات والبيوتان,3082.0,thousand tons,June 2025,June 2024,33.2%,Ministry of Petroleum,Page 19
+
+Energy Consumption,Natural Gas,Domestic,Natural Gas domestic consumption,الإستهلاك المحلي للغاز الطبيعي,3393.2,thousand tons,June 2025,June 2024,10.8%,Ministry of Petroleum,Page 19
+
+Butane,Import & Production,Imports,Butane imports,استيراد البوتاجاز,155.0,thousand tons,June 2025,June 2024,N/A,Ministry of Petroleum,Page 19
+Butane,Import & Production,Production,Butane production,إنتاج البوتاجاز,281.3,thousand tons,June 2025,June 2024,136.0%,Ministry of Petroleum,Page 19
+
+Solar Energy,Consumption,Diesel,Solar consumption,استهلاك السولار,1103.2,thousand tons,June 2025,June 2024,0.7%,Ministry of Petroleum,Page 20
+
+Electricity,Generation & Use,Generated,Generated electricity,الكهرباء المولدة,20.7,giga W.H,May 2025,May 2024,4.5%,Ministry of Electricity,Page 20
+Electricity,Generation & Use,Used,Used electricity,الكهرباء المستخدمة,15.6,giga W.H,May 2025,May 2024,4.7%,Ministry of Electricity,Page 20
+
+Electricity Distribution,Sectors,Household,House usages,الإستخدام المنزلي,6.0,mega W.H,May 2025,N/A,38.5%,Ministry of Electricity,Page 20
+Electricity Distribution,Sectors,Industry,Industry usage,الإستخدام الصناعي,4.1,mega W.H,May 2025,N/A,26.3%,Ministry of Electricity,Page 20
+Electricity Distribution,Sectors,Government,Public Utilities and Governmental Agencies,المرفق العامة والجهات الحكومية,1.8,mega W.H,May 2025,N/A,11.5%,Ministry of Electricity,Page 20
+
+Contact Info,Agency Address,N/A,3 Salah Salem St. - Nasr City - Cairo - Egypt,٣ طريق صلاح سالم - مدينة نصر - القاهرة,N/A,N/A,N/A,N/A,N/A,CAPMAS,Page 10
+Contact Info,Website,N/A,www.capmas.gov.eg,www.capmas.gov.eg,N/A,N/A,N/A,N/A,N/A,CAPMAS,Page 10
+Contact Info,Email,N/A,pres_capmas@capmas.gov.eg,pres_capmas@capmas.gov.eg,N/A,N/A,N/A,N/A,N/A,CAPMAS,Page 10
+
+Note,Methdological,Data Status,* Preliminary date,بيان مبدئي,N/A,N/A,N/A,N/A,N/A,N/A,Page 17
+Note,Methdological,Comparison,Comparisons conducted between latest available data with previous year,يتم إجراء المقارنة بين بيانات آخر فترة متوفرة مع نظيراتها من بيانات العام السابق,N/A,N/A,N/A,N/A,N/A,N/A,Page 14

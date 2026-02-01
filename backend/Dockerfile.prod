@@ -37,8 +37,8 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages torch torchvis
 # Copy application code
 COPY . .
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && \
+# Create non-root user for security (use UID 1001 as 1000 may exist in base image)
+RUN useradd -m -u 1001 appuser && \
     chown -R appuser:appuser /app
 
 USER appuser

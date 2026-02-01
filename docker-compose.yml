@@ -26,10 +26,8 @@ services:
       - "8001:8000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/construction_ai
-      SECRET_KEY: dev-secret-key-change-in-production
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
       ENVIRONMENT: development
-      LLM_PROVIDER: openai
       QDRANT_URL: http://qdrant:6333
     extra_hosts:
       - "host.docker.internal:host-gateway"

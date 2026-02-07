@@ -54,6 +54,21 @@ app = FastAPI(
 # Store environment in app state
 app.state.ENVIRONMENT = settings.ENVIRONMENT
 
+# Debug middleware to log OPTIONS requests (add this first so it runs last)
+@app.middleware("http")
+async def debug_options_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        debug_logger = logging.getLogger("cors_debug")
+        debug_logger.info(f"=== OPTIONS DEBUG ===")
+        debug_logger.info(f"Path: {request.url.path}")
+        debug_logger.info(f"Headers: {dict(request.headers)}")
+        debug_logger.info(f"=== END DEBUG ===")
+    response = await call_next(request)
+    if request.method == "OPTIONS":
+        debug_logger = logging.getLogger("cors_debug")
+        debug_logger.info(f"Response status: {response.status_code}")
+    return response
+
 # CORS middleware - MUST be added first (runs last in middleware chain)
 app.add_middleware(
     CORSMiddleware,

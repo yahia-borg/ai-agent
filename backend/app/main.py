@@ -54,17 +54,18 @@ app = FastAPI(
 # Store environment in app state
 app.state.ENVIRONMENT = settings.ENVIRONMENT
 
-# Add exception handler middleware
-app.middleware("http")(exception_handler)
-
-# CORS middleware
+# CORS middleware - MUST be added first (runs last in middleware chain)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Add exception handler middleware after CORS
+app.middleware("http")(exception_handler)
 
 # Add validation error handler for better debugging
 @app.exception_handler(RequestValidationError)

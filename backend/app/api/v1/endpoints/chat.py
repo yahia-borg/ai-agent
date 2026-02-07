@@ -17,6 +17,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.options("")
+async def chat_options():
+    """Handle CORS preflight for chat endpoint"""
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
+    )
+
+
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, Any]]] = []  # Use Any to be more flexible, then validate
@@ -134,6 +148,20 @@ async def chat_endpoint(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.options("/stream")
+async def chat_stream_options():
+    """Handle CORS preflight for stream endpoint"""
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
+    )
 
 
 @router.post("/stream")

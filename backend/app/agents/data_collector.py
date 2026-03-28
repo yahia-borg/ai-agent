@@ -121,8 +121,8 @@ class DataCollectorAgent(BaseAgent):
         # Determine project type from keywords (English and Arabic)
         project_type = None
         english_keywords = {
-            "commercial": ["office", "commercial", "retail", "warehouse", "shop", "cafe", "coffee", "restaurant", "store", "showroom", "كافيه", "قهوة", "مطعم", "معرض", "متجر"],
-            "residential": ["home", "house", "residential", "apartment", "villa", "unit", "منزل", "سكني", "شقة", "بيت", "فيلا", "وحدة"],
+            "commercial": ["office", "commercial", "retail", "warehouse", "shop", "cafe", "coffee", "restaurant", "store", "showroom", "bank", "hotel", "hospital", "clinic", "school", "gym", "mall", "بنك", "فندق", "مستشفى", "عيادة", "مدرسة", "جيم", "مول", "كافيه", "قهوة", "مطعم", "معرض", "متجر", "محل", "صيدلية", "مكتب", "تجاري"],
+            "residential": ["home", "house", "residential", "apartment", "villa", "unit", "منزل", "سكني", "شقة", "بيت", "فيلا", "وحدة", "دوبلكس", "بنتهاوس"],
             "new_construction": ["new construction", "build", "construct", "foundation", "بناء جديد", "بناء", "إنشاء", "تأسيس"]
         }
         
@@ -136,11 +136,11 @@ class DataCollectorAgent(BaseAgent):
         target_finish = None
         
         finish_keywords = {
-            "core_shell": ["core", "shell", "brick", "concrete", "طوب", "خرسانة", "عالطوب"],
-            "on_plaster": ["plaster", "محارة", "عالمحارة"],
-            "semi_finished": ["semi", "نص", "نصف"],
-            "fully_finished": ["fully", "finished", "كامل", "متشطب"],
-            "turnkey": ["turnkey", "lux", "لوكس", "مفتاح"]
+            "core_shell": ["core", "shell", "brick", "concrete", "طوب", "خرسانة", "عالطوب", "هيكل", "عظم"],
+            "on_plaster": ["plaster", "محارة", "عالمحارة", "المحارة", "بياض", "متمحر"],
+            "semi_finished": ["semi", "نص", "نصف", "شبه"],
+            "fully_finished": ["fully", "finished", "كامل", "متشطب", "تشطيب كامل"],
+            "turnkey": ["turnkey", "lux", "لوكس", "مفتاح", "فاخر", "سوبر لوكس", "luxury"]
         }
         
         # Simple extraction logic: check for "semi" or "finished" or "fully"
@@ -151,9 +151,9 @@ class DataCollectorAgent(BaseAgent):
         elif "brick" in description or "طوب" in description:
             current_finish = "core_shell"
             
-        if "fully" in description or "كامل" in description or "turnkey" in description or "مفتاح" in description:
+        if "fully" in description or "كامل" in description or "turnkey" in description or "مفتاح" in description or "فاخر" in description or "lux" in description:
             target_finish = "fully_finished"
-            if "lux" in description or "لوكس" in description or "turnkey" in description or "مفتاح" in description:
+            if "lux" in description or "لوكس" in description or "turnkey" in description or "مفتاح" in description or "فاخر" in description or "سوبر" in description:
                 target_finish = "turnkey"
 
         follow_up_question = (

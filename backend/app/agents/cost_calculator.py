@@ -7,6 +7,8 @@ from app.models.resources import Material, LaborRate
 from app.agents.llm_client import get_llm_client
 from app.models.project_data import ConstructionRequirements
 from app.utils.language_detector import detect_language
+from app.utils.category_utils import detect_category, detect_material_type, detect_material_group
+from app.services.config_service import get_config_service
 from sqlalchemy import text
 import json
 import logging
@@ -33,78 +35,121 @@ class CostCalculatorAgent(BaseAgent):
         return ["extracted_data"]
     
     
-    def _extract_keywords_from_list(self, items: List[str]) -> List[str]:
+    # Room multipliers and area defaults are now loaded from config service.
+    # See get_config_service() and _load_multipliers_from_config().
+
+    async def _distribute_areas_to_rooms(
+        self, extracted_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """
-        Extract simple keywords from verbose LLM responses.
-        Aggressively strips modifiers, markdown, and extracts core material/role names.
+        Build a list of ``{"room_type": str, "area_sqm": float}`` entries.
+
+        Priority:
+        1. Use rooms[].area_sqm if provided.
+        2. Else divide total size_sqm proportionally based on room counts
+           and typical Egyptian layout percentages.
+        3. If no rooms at all, return a single "generic" entry with full area.
         """
-        import re
-        keywords = []
-        
-        # Common modifiers to strip (both English and Arabic)
-        material_modifiers = [
-            'luxury', 'high-end', 'high end', 'premium', 'standard', 'basic',
-            'commercial', 'residential', 'industrial', 'fireproof', 'fire proof',
-            'smart', 'automatic', 'manual', 'semi', 'full', 'partial',
-            'مميز', 'فاخر', 'عادي', 'تجاري', 'سكني'
-        ]
-        
-        role_modifiers = [
-            'luxury', 'high-end', 'premium', 'skilled', 'certified', 'licensed',
-            'senior', 'junior', 'chief', 'head', 'assistant', 'apprentice',
-            'فني', 'ماهر', 'مرخص', 'رئيسي'
-        ]
-        
-        for item in items:
-            if not item or not isinstance(item, str):
-                continue
-            
-            # Remove markdown formatting
-            text = re.sub(r'\*\*|__|\*|_|`|#', '', item)
-            text = re.sub(r'^\d+\.\s*', '', text)
-            text = re.sub(r'^[-•]\s*', '', text)
-            text = re.sub(r'\([^)]*\)', '', text)  # Remove parentheses content (e.g., "(plasterer)")
-            text = re.sub(r'\[.*?\]', '', text)
-            text = re.sub(r'\{.*?\}', '', text)
-            text = re.sub(r'/.*', '', text)  # Remove everything after slash (e.g., "marble/granite" → "marble")
-            
-            # Split by common separators
-            parts = re.split(r'[:;,\n\-–—]', text)
-            for part in parts:
-                part = part.strip()
-                if not part:
-                    continue
-                
-                # Extract words (handle both English and Arabic)
-                words = re.findall(r'[\u0600-\u06FF]+|[a-zA-Z]+', part)
-                if not words:
-                    continue
-                
-                # Remove modifiers
-                filtered_words = []
-                for word in words:
-                    word_lower = word.lower()
-                    if word_lower not in material_modifiers and word_lower not in role_modifiers:
-                        filtered_words.append(word)
-                
-                if filtered_words:
-                    # Take first 1-2 words (not 3) to keep keywords short
-                    keyword = ' '.join(filtered_words[:2]).strip()
-                    if len(keyword) > 2 and keyword not in keywords:
-                        keywords.append(keyword)
-                        if len(keywords) >= 25:  # Increased limit for better coverage
-                            break
-        
-        # Deduplicate and return
-        seen = set()
-        unique_keywords = []
-        for kw in keywords:
-            kw_lower = kw.lower()
-            if kw_lower not in seen:
-                seen.add(kw_lower)
-                unique_keywords.append(kw)
-        
-        return unique_keywords[:25]
+        config = get_config_service()
+
+        size_sqm = extracted_data.get("size_sqm") or 0
+        rooms = extracted_data.get("rooms") or []
+        num_bathrooms = extracted_data.get("num_bathrooms")
+        num_kitchens = extracted_data.get("num_kitchens")
+        project_type = (extracted_data.get("project_type") or "residential").lower()
+
+        is_commercial = any(
+            kw in project_type
+            for kw in ["commercial", "office", "bank", "تجاري"]
+        )
+
+        area_type = "commercial" if is_commercial else "residential"
+        area_defaults = await config.get_area_defaults(area_type)
+
+        result: List[Dict[str, Any]] = []
+
+        # Case 1: rooms with explicit areas
+        if rooms:
+            total_explicit = 0.0
+            rooms_without_area = []
+
+            for room in rooms:
+                count = room.get("count", 1) or 1
+                area = room.get("area_sqm")
+                rtype = room.get("room_type", "other")
+
+                if area and area > 0:
+                    for _ in range(count):
+                        result.append({"room_type": rtype, "area_sqm": area})
+                        total_explicit += area
+                else:
+                    rooms_without_area.append((rtype, count))
+
+            remaining = max(size_sqm - total_explicit, 0)
+            total_rooms_without = sum(c for _, c in rooms_without_area)
+
+            if rooms_without_area and remaining > 0 and total_rooms_without > 0:
+                per_room = remaining / total_rooms_without
+                for rtype, count in rooms_without_area:
+                    for _ in range(count):
+                        result.append({"room_type": rtype, "area_sqm": per_room})
+            elif rooms_without_area:
+                weight_sum = sum(
+                    area_defaults.get(rtype, 0.10) * count
+                    for rtype, count in rooms_without_area
+                )
+                for rtype, count in rooms_without_area:
+                    w = area_defaults.get(rtype, 0.10) * count
+                    area = (w / weight_sum * size_sqm) / count if weight_sum > 0 else size_sqm / total_rooms_without
+                    for _ in range(count):
+                        result.append({"room_type": rtype, "area_sqm": area})
+
+            return result
+
+        # Case 2: no rooms list, but num_bathrooms / num_kitchens given
+        if num_bathrooms is not None or num_kitchens is not None:
+            nb = num_bathrooms or 0
+            nk = num_kitchens or 0
+            bath_area = size_sqm * area_defaults.get("bathroom", 0.06)
+            kitchen_area = size_sqm * area_defaults.get("kitchen", 0.10)
+            allocated = bath_area * nb + kitchen_area * nk
+
+            for _ in range(nb):
+                result.append({"room_type": "bathroom", "area_sqm": bath_area})
+            for _ in range(nk):
+                result.append({"room_type": "kitchen", "area_sqm": kitchen_area})
+
+            rest = max(size_sqm - allocated, 0)
+            if rest > 0:
+                generic_type = "office" if is_commercial else "living_room"
+                result.append({"room_type": generic_type, "area_sqm": rest})
+
+            return result
+
+        # Case 3: no room data at all
+        generic_type = "open_plan" if is_commercial else "living_room"
+        result.append({"room_type": generic_type, "area_sqm": size_sqm})
+        return result
+
+    async def _get_room_material_multiplier(
+        self, room_type: str, material_category: str
+    ) -> float:
+        """Return the material multiplier for a room + material category pair."""
+        config = get_config_service()
+        room_mults = await config.get_room_multipliers(room_type, "material")
+        cat_lower = material_category.lower()
+        for key in room_mults:
+            if key in cat_lower:
+                return room_mults[key]
+        return room_mults.get("default", 1.0)
+
+    async def _get_room_labor_multiplier(
+        self, room_type: str, trade_key: str
+    ) -> float:
+        """Return the labor multiplier for a room + trade pair."""
+        config = get_config_service()
+        room_mults = await config.get_room_multipliers(room_type, "labor")
+        return room_mults.get(trade_key, room_mults.get("default", 1.0))
 
     async def _verify_and_enrich_phases(
         self,
@@ -115,61 +160,59 @@ class CostCalculatorAgent(BaseAgent):
     ) -> Dict[str, Any]:
         """
         Query Qdrant to verify and enrich phase information.
-        
+
+        Uses semantic search with the raw Arabic/English finish level text.
+        The multilingual embedding model (paraphrase-multilingual-MiniLM-L12-v2)
+        handles Arabic natively — no hardcoded phase_mapping needed.
+
         Args:
-            current_finish: Current finish level (e.g., "plastered", "on_plaster")
-            target_finish: Target finish level (e.g., "fully_finished", "turnkey")
-            project_type: Type of project (e.g., "residential", "commercial")
-            language: Language preference ('en' or 'ar')
-        
+            current_finish: Current finish level as provided by the user/extraction
+                            (e.g. "على_الطوب", "on_plaster", "plastered")
+            target_finish:  Target finish level
+                            (e.g. "تشطيب_كامل", "عالمفتاح", "fully_finished")
+            project_type:   Type of project (e.g., "residential", "commercial")
+            language:       Language preference ('en' or 'ar')
+
         Returns:
-            Dictionary with enriched phase information:
-            {
-                "current_phase": {
-                    "name": "plastered",
-                    "arabic_name": "على المحارة",
-                    "description": "...",
-                    "status": "...",
-                    "completed_work": [],
-                    "missing_work": []
-                },
-                "target_phase": {
-                    "name": "fully_finished",
-                    "arabic_name": "تشطيب كامل",
-                    "description": "...",
-                    "required_work": [],
-                    "materials_needed": []
-                }
-            }
+            Dictionary with enriched phase information from the knowledge base.
         """
         try:
             from app.services.qdrant_service import get_qdrant_service
             qdrant = get_qdrant_service()
-            
-            # Map finish levels to phase numbers for querying
-            phase_mapping = {
-                "bare_concrete": "1",
-                "red_brick": "1",
-                "half_finished": "2",
-                "semi_finished": "2",
-                "plastered": "2",
-                "on_plaster": "3",
-                "fully_finished": "4",
-                "turnkey": "4"
-            }
-            
-            current_phase_num = phase_mapping.get(current_finish, "2")
-            target_phase_num = phase_mapping.get(target_finish, "4")
-            
-            # Query 1: Current phase information
-            current_phase_query = f"Phase {current_phase_num} {current_finish} {project_type} status requirements"
-            current_phase_results = qdrant.search_knowledge(current_phase_query, top_k=3)
-            
-            # Query 2: Target phase information
-            target_phase_query = f"Phase {target_phase_num} {target_finish} {project_type} requirements materials"
-            target_phase_results = qdrant.search_knowledge(target_phase_query, top_k=3)
-            
-            # Extract phase information from results
+
+            # Guard against None values
+            if not current_finish or not target_finish:
+                logger.warning(f"Missing finish levels: current={current_finish}, target={target_finish}")
+                return {
+                    "current_phase": {"name": current_finish or "unknown", "arabic_name": None},
+                    "target_phase": {"name": target_finish or "unknown", "arabic_name": None}
+                }
+
+            # Humanise underscored values so the embedding sees natural text
+            current_readable = current_finish.replace("_", " ")
+            target_readable = target_finish.replace("_", " ")
+
+            # Query 1 — current phase: use the raw value directly so the
+            # multilingual model can match Arabic ("التشطيب من على الطوب الأحمر")
+            # or English ("red brick stage") in the knowledge base.
+            current_phase_query = (
+                f"مرحلة التشطيب {current_readable} "
+                f"{current_readable} finishing stage "
+                f"{project_type} requirements materials labor"
+            )
+            logger.info(f"Qdrant phase query (current): {current_phase_query}")
+            current_phase_results = qdrant.search_knowledge(current_phase_query, top_k=5)
+
+            # Query 2 — target phase
+            target_phase_query = (
+                f"مرحلة التشطيب {target_readable} "
+                f"{target_readable} finishing stage "
+                f"{project_type} requirements materials labor"
+            )
+            logger.info(f"Qdrant phase query (target): {target_phase_query}")
+            target_phase_results = qdrant.search_knowledge(target_phase_query, top_k=5)
+
+            # Build current phase info from Qdrant results
             current_phase_info = {
                 "name": current_finish,
                 "arabic_name": None,
@@ -178,7 +221,7 @@ class CostCalculatorAgent(BaseAgent):
                 "completed_work": [],
                 "missing_work": []
             }
-            
+
             target_phase_info = {
                 "name": target_finish,
                 "arabic_name": None,
@@ -186,34 +229,39 @@ class CostCalculatorAgent(BaseAgent):
                 "required_work": [],
                 "materials_needed": []
             }
-            
-            # Extract from current phase results
+
             if current_phase_results:
-                current_phase_info["description"] = "\n".join([r.get("content", "")[:200] for r in current_phase_results[:2]])
-                # Try to extract Arabic name from topic
+                current_phase_info["description"] = "\n".join(
+                    [r.get("content", "")[:300] for r in current_phase_results[:3]]
+                )
                 for result in current_phase_results:
                     topic = result.get("topic", "")
                     arabic_match = re.search(r'\(([^)]+)\)', topic)
                     if arabic_match and any(ord(c) > 127 for c in arabic_match.group(1)):
                         current_phase_info["arabic_name"] = arabic_match.group(1)
                         break
-            
-            # Extract from target phase results
+
             if target_phase_results:
-                target_phase_info["description"] = "\n".join([r.get("content", "")[:200] for r in target_phase_results[:2]])
-                # Try to extract Arabic name from topic
+                target_phase_info["description"] = "\n".join(
+                    [r.get("content", "")[:300] for r in target_phase_results[:3]]
+                )
                 for result in target_phase_results:
                     topic = result.get("topic", "")
                     arabic_match = re.search(r'\(([^)]+)\)', topic)
                     if arabic_match and any(ord(c) > 127 for c in arabic_match.group(1)):
                         target_phase_info["arabic_name"] = arabic_match.group(1)
                         break
-            
+
+            logger.info(
+                f"Phase enrichment: current='{current_finish}' matched {len(current_phase_results)} docs, "
+                f"target='{target_finish}' matched {len(target_phase_results)} docs"
+            )
+
             return {
                 "current_phase": current_phase_info,
                 "target_phase": target_phase_info
             }
-            
+
         except Exception as e:
             logger.warning(f"Error verifying/enriching phases: {e}. Using defaults.")
             return {
@@ -221,94 +269,142 @@ class CostCalculatorAgent(BaseAgent):
                 "target_phase": {"name": target_finish, "arabic_name": None}
             }
 
+    # ── Phase transition requirement maps ──────────────────────────
+    # Deterministic mapping: what materials and labor are needed
+    # for each finishing transition. Replaces the nested LLM call.
+    PHASE_REQUIREMENTS = {
+        "core_shell": {
+            # From core shell / red brick: need everything
+            "materials": [
+                "cement", "sand", "plaster", "waterproofing", "pipes", "electrical conduit",
+                "wiring", "cable", "switch", "socket", "ceramic tile", "porcelain tile",
+                "paint", "emulsion", "door", "window", "gypsum board", "marble",
+                "steel", "rebar"
+            ],
+            "labor": [
+                "mason", "electrician", "plumber", "plasterer", "tiler",
+                "painter", "carpenter", "welder", "supervisor"
+            ],
+        },
+        "on_plaster": {
+            # From plastered: finishing only (no structural)
+            "materials": [
+                "ceramic tile", "porcelain tile", "paint", "emulsion",
+                "door", "window", "switch", "socket", "wiring",
+                "pipes", "fixtures", "marble", "waterproofing"
+            ],
+            "labor": [
+                "electrician", "plumber", "tiler", "painter", "carpenter", "supervisor"
+            ],
+        },
+        "semi_finished": {
+            # From semi-finished: final touches only
+            "materials": [
+                "paint", "emulsion", "switch", "socket",
+                "fixtures", "door handle", "accessories"
+            ],
+            "labor": [
+                "painter", "electrician", "plumber", "carpenter"
+            ],
+        },
+    }
+
+    # Aliases for phase names (Arabic and English variants, including Egyptian colloquial)
+    PHASE_ALIASES = {
+        "core_shell": [
+            "core_shell", "على_الطوب", "على الطوب", "عالطوب", "red brick", "red_brick",
+            "على الطوب الأحمر", "العظم", "هيكل", "خرسانة", "core shell",
+        ],
+        "on_plaster": [
+            "on_plaster", "plastered", "على_المحارة", "على المحارة", "عالمحارة",
+            "on plaster", "محارة", "on_plaster", "بياض", "متمحر",
+        ],
+        "semi_finished": [
+            "semi_finished", "نص_تشطيب", "نص تشطيب", "semi finished", "نصف تشطيب",
+            "نص_تشطيب", "شبه متشطب",
+        ],
+    }
+
+    def _resolve_phase(self, phase_name: str) -> str:
+        """Resolve phase name aliases to canonical key."""
+        if not phase_name:
+            return "core_shell"  # Safest fallback when phase is unknown
+        phase_lower = phase_name.lower().strip()
+        for canonical, aliases in self.PHASE_ALIASES.items():
+            if phase_lower in [a.lower() for a in aliases]:
+                return canonical
+        # Default: if it looks like core_shell keywords
+        if any(kw in phase_lower for kw in ["طوب", "brick", "shell", "عظم"]):
+            return "core_shell"
+        if any(kw in phase_lower for kw in ["محارة", "plaster"]):
+            return "on_plaster"
+        if any(kw in phase_lower for kw in ["نص", "semi"]):
+            return "semi_finished"
+        return "core_shell"  # Most comprehensive fallback
+
     async def _query_qdrant_for_requirements(self, extracted_data: Dict[str, Any]) -> Dict[str, List[str]]:
         """
-        Query Qdrant knowledge base and use LLM to determine specific requirements.
+        Determine material and labor requirements using deterministic phase mapping.
+
+        Uses Qdrant for supplementary knowledge but does NOT make an LLM call.
+        The phase transition requirements are looked up from PHASE_REQUIREMENTS.
         """
         try:
-            from app.services.qdrant_service import get_qdrant_service
+            current_finish = extracted_data.get("current_finish_level") or "plastered"
+            target_finish = extracted_data.get("target_finish_level") or "fully_finished"
+            project_type = extracted_data.get("project_type") or "residential"
 
-            current_finish = extracted_data.get("current_finish_level", "plastered")
-            target_finish = extracted_data.get("target_finish_level", "fully_finished")
-            project_type = extracted_data.get("project_type", "residential")
+            logger.info(f"Determining requirements for: {current_finish} -> {target_finish}")
 
-            # Phase 1: Knowledge Retrieval
-            query = f"Detailed technical standards, phases, and specific material/labor lists for {project_type} "
-            query += f"transition from {current_finish} to {target_finish}."
+            # Resolve phase to canonical key
+            phase_key = self._resolve_phase(current_finish)
+            requirements = self.PHASE_REQUIREMENTS.get(phase_key, self.PHASE_REQUIREMENTS["core_shell"])
 
-            logger.info(f"Retrieving standards for: {current_finish} -> {target_finish}")
+            materials = list(requirements["materials"])
+            labor = list(requirements["labor"])
 
-            qdrant = get_qdrant_service()
-            results = qdrant.search_knowledge(query, top_k=5)
-            
-            knowledge_context = "\n\n".join([
-                f"Topic: {r.get('topic')}\nContent: {r.get('content')}" 
-                for r in results
-            ])
+            # Optionally enrich from Qdrant (non-blocking, no LLM)
+            try:
+                from app.services.qdrant_service import get_qdrant_service
+                qdrant = get_qdrant_service()
 
-            # Phase 2: LLM Interpretation
-            system_prompt = """You are a technical construction expert for the Egyptian market.
-Based on the provided snippets from our knowledge base (Egyptian codes and standards), 
-extract a structured list of specific materials and labor roles required for the given project transition.
+                current_readable = current_finish.replace("_", " ")
+                target_readable = target_finish.replace("_", " ")
 
-CRITICAL: Return ONLY simple keywords/phrases (1-3 words each), NOT full descriptions or markdown formatting.
-Examples of GOOD responses:
-- Materials: ["cement", "steel bars", "gypsum board", "ceramic tiles", "paint"]
-- Labor: ["mason", "electrician", "plumber", "tiler", "painter"]
+                query = (
+                    f"مراحل تشطيب {current_readable} إلى {target_readable} "
+                    f"مواد وعمالة مطلوبة {project_type}"
+                )
+                qdrant_results = qdrant.search_knowledge(query, top_k=3)
 
-Examples of BAD responses (DO NOT DO THIS):
-- Materials: ["1. **Structural & Reinforcement Materials** (Compliance: ECP 203-2020): - B500DWR steel reinforcement bars"]
-- Labor: ["**A. Technical Oversight Roles:** - Contract Supervising Engineer: Licensed from Engineers' Syndicate"]
+                if qdrant_results:
+                    logger.info(f"Qdrant returned {len(qdrant_results)} supplementary results")
+                    # Extract any additional material keywords from Qdrant content
+                    for result in qdrant_results:
+                        content = result.get("content", "").lower()
+                        # Check for materials not already in list
+                        for mat_kw in ["gypsum", "insulation", "vinyl", "parquet", "granite", "glass"]:
+                            if mat_kw in content and mat_kw not in [m.lower() for m in materials]:
+                                materials.append(mat_kw)
 
-Focus on what's needed to go from the CURRENT state to the TARGET state.
-IF current state is 'plastered' or 'on_plaster', DO NOT include structural materials like 'steel', 'concrete', 'bricks', or 'cement' (unless for tiling mortar)."""
+            except Exception as e:
+                logger.warning(f"Qdrant enrichment failed (non-critical): {e}")
 
-            prompt = f"""
-PROJECT CONTEXT:
-- Type: {project_type}
-- Transition: {current_finish} TO {target_finish}
-
-KNOWLEDGE BASE SNIPPETS:
-\"\"\"
-{knowledge_context}
-\"\"\"
-
-Extract ONLY simple keywords for materials and labor roles needed for THIS SPECIFIC transition.
-Return each item as a short keyword (1-3 words), NOT full descriptions or markdown.
-"""
-
-            requirements = await self.llm.invoke_structured(
-                prompt=prompt,
-                schema=ConstructionRequirements,
-                system_prompt=system_prompt
-            )
-
-            logger.info(f"LLM extracted requirements: {requirements.dict()}")
-
-            # Extract keywords from verbose responses
-            materials = self._extract_keywords_from_list(requirements.materials)
-            labor = self._extract_keywords_from_list(requirements.labor)
-            
-            # Log extracted keywords for debugging
-            logger.info(f"Extracted material keywords: {materials}")
-            logger.info(f"Extracted labor keywords: {labor}")
-
-            return {
-                "materials": materials,
-                "labor": labor
-            }
+            logger.info(f"Deterministic requirements: {len(materials)} materials, {len(labor)} labor roles")
+            return {"materials": materials, "labor": labor}
 
         except Exception as e:
-            logger.warning(f"Error in intelligent requirement extraction: {e}. Using basic fallback.")
+            logger.warning(f"Error in requirement extraction: {e}. Using basic fallback.")
             return {
                 "materials": ["cement", "sand", "tile", "paint", "plaster", "wiring", "pipes"],
                 "labor": ["mason", "electrician", "plumber", "painter", "tiler"]
             }
     
-    async def _fetch_materials_from_db(self, material_queries: List[str], language: str = "en") -> List[Dict[str, Any]]:
+    def _fetch_materials_from_db(self, material_queries: List[str], language: str = "en") -> List[Dict[str, Any]]:
         """
         Fetch materials from database based on queries from Qdrant.
         Uses PostgreSQL multilingual search function.
+        NOTE: sync — call via asyncio.to_thread() from async context.
 
         Args:
             material_queries: List of material search queries
@@ -407,7 +503,7 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
                         "unit_id": row.unit_id,
                         "currency": currency_symbol or "EGP",
                         "currency_id": row.currency_id,
-                        "category": category_display or _detect_category_from_query(query),
+                        "category": category_display or query.title(),
                         "category_id": row.category_id,
                         "source_query": query,  # Track the query that found this material
                         "brand": brand,
@@ -427,17 +523,21 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
         finally:
             db.close()
     
-    async def _fetch_labor_rates_from_db(self, labor_queries: List[str], language: str = "en") -> List[Dict[str, Any]]:
+    def _fetch_labor_rates_from_db(self, labor_queries: List[str], language: str = "en", fallback_rates: dict = None) -> List[Dict[str, Any]]:
         """
         Fetch labor rates from database based on queries from Qdrant.
         Uses PostgreSQL multilingual search function.
+        NOTE: sync — call via asyncio.to_thread() from async context.
 
         Args:
             labor_queries: List of labor role search queries
             language: Language preference ('en' or 'ar')
+            fallback_rates: Pre-fetched dict of fallback rates (keys are role keywords, values are float rates)
 
         Returns list of labor rates.
         """
+        if fallback_rates is None:
+            fallback_rates = {}
         db = SessionLocal()
         try:
             labor_rates = []
@@ -479,17 +579,22 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
                     # Extract display name from JSONB
                     role_display = row.role_ar if language == "ar" else row.role_en
                     
+                    if row.hourly_rate:
+                        hourly_rate = float(row.hourly_rate)
+                    else:
+                        role_lower = str(row.role_en or "").lower()
+                        hourly_rate = next(
+                            (float(v) for k, v in fallback_rates.items() if k in role_lower),
+                            float(fallback_rates.get("default", 50.0))
+                        )
+
                     labor_rates.append({
                         "role": role_display,  # Display name for compatibility
                         "role_bilingual": {
                             "en": row.role_en,
                             "ar": row.role_ar
                         },
-                        "role_bilingual": {
-                            "en": row.role_en,
-                            "ar": row.role_ar
-                        },
-                        "hourly_rate": float(row.hourly_rate) if row.hourly_rate else self._get_default_labor_rate(row.role_en),
+                        "hourly_rate": hourly_rate,
                         "daily_rate": float(row.daily_rate) if row.daily_rate else None,
                         "currency": currency_symbol or "EGP",
                         "currency_id": row.currency_id,
@@ -508,22 +613,21 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
             db.close()
     
     
-    def _get_default_labor_rate(self, role: str) -> float:
+    async def _get_default_labor_rate(self, role: str) -> float:
         """Provide fallback rates for common roles if DB is missing data."""
+        config = get_config_service()
+        rates = await config.get_config("fallback_labor_rates")
+        if not rates or not isinstance(rates, dict):
+            return 50.0
         role_lower = str(role).lower()
-        if "engineer" in role_lower: return 150.0  # Supervising engineer
-        if "electrician" in role_lower: return 60.0
-        if "plumber" in role_lower: return 60.0
-        if "tiler" in role_lower: return 70.0
-        if "painter" in role_lower: return 55.0
-        if "carpenter" in role_lower: return 65.0
-        if "mason" in role_lower: return 60.0
-        if "labor" in role_lower or "helper" in role_lower: return 40.0
-        return 50.0  # Generic fallback
+        for key, rate in rates.items():
+            if key in role_lower:
+                return float(rate)
+        return float(rates.get("default", 50.0))
 
-    def _deduplicate_materials(
-        self, 
-        materials: List[Dict[str, Any]], 
+    async def _deduplicate_materials(
+        self,
+        materials: List[Dict[str, Any]],
         quality_tier: str = "standard",
         project_description: str = ""
     ) -> List[Dict[str, Any]]:
@@ -551,6 +655,7 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
 
         quality_tier = quality_tier.lower()
         desc_lower = project_description.lower() if project_description else ""
+        config = get_config_service()
 
         # Step 1: Remove exact duplicates
         seen_names = set()
@@ -570,56 +675,26 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
             unique_materials.append(material)
 
         # Step 2: Detect explicit flooring preferences from user input
-        # Check if user explicitly requested marble/stone or ceramic/tiles
-        user_wants_stone = any(kw in desc_lower for kw in ["رخام", "marble", "granite", "جرانيت", "عايز رخام", "want marble", "عايز جرانيت"])
-        user_wants_tiles = any(kw in desc_lower for kw in ["سيراميك", "ceramic", "porcelain", "بلاط", "عايز سيراميك", "want ceramic", "want tile"])
-        user_wants_wood = any(kw in desc_lower for kw in ["خشب", "wood", "parquet", "باركيه", "عايز خشب", "want wood"])
+        flooring_prefs = await config.get_category_keywords("flooring_preference")
+        stone_kws = flooring_prefs.get("stone", ["رخام", "marble", "granite", "جرانيت"])
+        tiles_kws = flooring_prefs.get("tiles", ["سيراميك", "ceramic", "porcelain", "بلاط"])
+        wood_kws = flooring_prefs.get("wood", ["خشب", "wood", "parquet", "باركيه"])
+        user_wants_stone = any(kw in desc_lower for kw in stone_kws)
+        user_wants_tiles = any(kw in desc_lower for kw in tiles_kws)
+        user_wants_wood = any(kw in desc_lower for kw in wood_kws)
 
         # Step 3: Group by material type and limit similar items
-        # Define material type keywords for grouping
-        TYPE_KEYWORDS = {
-            "tiles": ["tile", "ceramic", "porcelain", "floor tile", "بلاط", "سيراميك", "بورسلين"],
-            "stone": ["marble", "granite", "رخام", "جرانيت"],  # Separate from tiles
-            "paint": ["paint", "emulsion", "coating", "دهان", "طلاء"],
-            "plaster": ["plaster", "skim", "محارة", "بياض"],
-            "cement": ["cement", "أسمنت"],
-            "steel": ["steel", "iron", "rebar", "حديد"],
-            "wood": ["wood", "timber", "parquet", "خشب", "باركيه"],
-            "pipes": ["pipe", "diameter", "مواسير", "قطر"],
-            "electrical": ["cable", "wire", "switch", "كهرباء", "سلك"],
-            "glass": ["glass", "زجاج"],
-            "brick": ["brick", "block", "طوب", "بلوك"],
-            "vinyl": ["vinyl", "فينيل"],
-        }
-
-        # Max items per type - flooring materials limited to 1 when user specifies
-        MAX_PER_TYPE = {
-            "tiles": 1,  # Only one ceramic type per quotation - select best match
-            "stone": 1,  # Only one stone type per quotation - select best match
-            "paint": 2,
-            "plaster": 1,
-            "cement": 1,
-            "steel": 1,
-            "wood": 1,  # Only one wood type per quotation
-            "pipes": 2,
-            "electrical": 2,
-            "glass": 1,
-            "brick": 1,
-            "vinyl": 1,
-            "default": 2
+        # Load from config service
+        TYPE_KEYWORDS = await config.get_category_keywords("material_type")
+        MAX_PER_TYPE = await config.get_config("max_per_material_type") or {
+            "tiles": 1, "stone": 1, "paint": 2, "plaster": 1,
+            "cement": 1, "steel": 1, "wood": 1, "pipes": 2,
+            "electrical": 2, "glass": 1, "brick": 1, "vinyl": 1, "default": 2
         }
 
         def get_material_type(material: Dict) -> str:
             """Detect material type from name."""
-            name = material.get("name", "")
-            if isinstance(name, dict):
-                name = f"{name.get('en', '')} {name.get('ar', '')}"
-            name_lower = str(name).lower()
-
-            for mat_type, keywords in TYPE_KEYWORDS.items():
-                if any(kw in name_lower for kw in keywords):
-                    return mat_type
-            return "other"
+            return detect_material_group(material.get("name", ""), TYPE_KEYWORDS)
 
         def matches_quality(material: Dict, quality: str) -> bool:
             """Check if material matches quality tier."""
@@ -680,46 +755,30 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
         logger.info(f"Deduplication: {len(materials)} -> {len(unique_materials)} unique -> {len(final_materials)} final (limited per type)")
         return final_materials
 
-    def _get_item_breakdown(self, item_name: str, category: str, total_price: float, language: str = "en") -> List[Dict[str, Any]]:
+    async def _get_item_breakdown(self, item_name: str, category: str, total_price: float, language: str = "en") -> List[Dict[str, Any]]:
         """
         Split a single unit price into standard construction components based on industry norms.
         """
+        config = get_config_service()
         category = category or "General"
-        cat_lower = str(category).lower()
-        
-        # Standard splits based on category
-        splits = {
-            "flooring": {"supply": 0.65, "installation": 0.15, "transport": 0.05, "misc": 0.15},
-            "painting": {"supply": 0.45, "installation": 0.35, "transport": 0.05, "misc": 0.15},
-            "plastering": {"supply": 0.30, "installation": 0.50, "transport": 0.05, "misc": 0.15},
-            "electrical": {"supply": 0.70, "installation": 0.20, "transport": 0.02, "misc": 0.08},
-            "plumbing": {"supply": 0.60, "installation": 0.25, "transport": 0.05, "misc": 0.10},
-            "default": {"supply": 0.55, "installation": 0.25, "transport": 0.05, "misc": 0.15}
-        }
-        
-        active_split = splits.get(next((k for k in splits if k in cat_lower), "default"))
-        
-        # Bilingual labels
-        labels = {
-            "supply": {"en": "Supply", "ar": "توريد"},
-            "installation": {"en": "Installation", "ar": "تركيب"},
-            "transport": {"en": "Transport & Site Logistics", "ar": "نقل وتشوينات"},
-            "misc": {"en": "Sundries & Overheads", "ar": "مصروفات نثربة وهامش ربح"}
-        }
-        
+
+        active_split = await config.get_cost_splits(category)
+        labels = await config.get_split_labels()
+
         breakdown = []
         for key, percentage in active_split.items():
-            label_en = labels[key]["en"]
-            label_ar = labels[key]["ar"]
+            lbl = labels.get(key, {"en": key.title(), "ar": key})
+            label_en = lbl.get("en", key.title()) if isinstance(lbl, dict) else key.title()
+            label_ar = lbl.get("ar", key) if isinstance(lbl, dict) else key
             label = f"{label_en} / {label_ar}" if language == "bilingual" else (label_ar if language == "ar" else label_en)
-            
+
             breakdown.append({
                 "component": key,
                 "label": label,
                 "percentage": percentage * 100,
                 "price": round(total_price * percentage, 2)
             })
-            
+
         return breakdown
 
     async def execute(self, quotation: Quotation, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -749,8 +808,13 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
         labor_queries = requirements.get("labor", [])
 
         # Step 2: Fetch pricing from database
-        materials = await self._fetch_materials_from_db(material_queries, language="en") # Fetch one, logic handles translation
-        labor_rates = await self._fetch_labor_rates_from_db(labor_queries, language="en")
+        # Pre-fetch fallback rates (async) before running sync DB methods in a thread.
+        import asyncio
+        _config = get_config_service()
+        _fallback_rates = await _config.get_config("fallback_labor_rates") or {}
+
+        materials = await asyncio.to_thread(self._fetch_materials_from_db, material_queries, "en")
+        labor_rates = await asyncio.to_thread(self._fetch_labor_rates_from_db, labor_queries, "en", _fallback_rates)
 
         # Deduplicate materials based on project quality preference
         # Try to infer quality from requirements or extracted info
@@ -765,58 +829,66 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
              else:
                  quality_pref = "standard"
                  
-        materials = self._deduplicate_materials(materials, quality_pref, quotation.project_description or "")
+        materials = await self._deduplicate_materials(materials, quality_pref, quotation.project_description or "")
 
-        # Step 3: Calculate material costs
+        # Step 3: Calculate material costs (room-aware)
         material_items = []
         total_material_cost = 0
 
-        from app.utils.quotation_descriptions import get_category_description, get_material_description
+        from app.utils.quotation_descriptions import get_category_description, get_material_description, load_description_config
         from app.services.qdrant_service import get_qdrant_service
+
+        # Pre-load description config (async → sync functions)
+        desc_cfg = await load_description_config()
 
         # Get Qdrant service for knowledge retrieval
         qdrant_service = get_qdrant_service()
-        
+
         # Get phase information (use Arabic for context internal)
         phase_info = await self._verify_and_enrich_phases(
-            extracted_data.get("current_finish_level", "plastered"),
-            extracted_data.get("target_finish_level", "fully_finished"),
+            extracted_data.get("current_finish_level") or "plastered",
+            extracted_data.get("target_finish_level") or "fully_finished",
             project_type,
             "ar"
         )
 
+        # Build room breakdown for room-aware quantities
+        room_breakdown = await self._distribute_areas_to_rooms(extracted_data)
+        logger.info(
+            f"Room breakdown: {len(room_breakdown)} spaces, "
+            f"types: {[r['room_type'] for r in room_breakdown]}"
+        )
+
         for material in materials:
-            # Estimate quantity based on project size and material type
-            # Handle both old format (string) and new format (bilingual dict)
-            # Use 'en' as key but we'll generate bilingual descriptions
             name = material.get("name") or "Material"
             if isinstance(name, dict):
                 name = name.get("en", "Material")
-            
+
             name = str(name)
             name_lower = name.lower()
-            
+
             category = material.get("category") or "General"
             if isinstance(category, dict):
                 category = category.get("en", "General")
-            
+
             category = str(category)
             category_lower = category.lower()
-            
-            # Default multiplier
-            multiplier = 1.0
-            
-            # Refine multipliers based on construction norms
-            if "wall" in name_lower or "paint" in name_lower or "plaster" in name_lower or category_lower in ["walls", "painting"]:
-                multiplier = 2.8
-            elif "ceiling" in name_lower or category_lower == "ceilings":
-                multiplier = 1.0
-            elif "floor" in name_lower or "tile" in name_lower or "ceramic" in name_lower or "porcelain" in name_lower or "marble" in name_lower or category_lower == "flooring":
-                multiplier = 1.1
-            elif "door" in name_lower or "window" in name_lower or category_lower == "doors_windows":
-                multiplier = 0.05
-            
-            quantity = size_sqm * multiplier
+
+            # Detect material type for room multiplier lookup
+            mat_type = detect_material_type(name, category)
+
+            # Accumulate quantity across all rooms using room-specific multipliers
+            quantity = 0.0
+            if mat_type == "door":
+                quantity = size_sqm * 0.05
+            elif mat_type == "ceiling":
+                quantity = size_sqm * 1.0
+            else:
+                for room in room_breakdown:
+                    rtype = room["room_type"]
+                    rarea = room["area_sqm"]
+                    mult = await self._get_room_material_multiplier(rtype, mat_type)
+                    quantity += rarea * mult
             unit_price = material.get("price") or material.get("price_per_unit", 0)
             item_cost = quantity * unit_price
             unit = material.get("unit", "sqm")
@@ -833,7 +905,8 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
                     project_type=project_type,
                     language="bilingual",
                     qdrant_service=qdrant_service,
-                    conversation_context=quotation.project_description
+                    conversation_context=quotation.project_description,
+                    cfg=desc_cfg,
                 )
             except Exception as e:
                 logger.warning(f"Error generating material description, using fallback: {e}")
@@ -843,11 +916,12 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
                     quantity=quantity,
                     unit=unit,
                     language="bilingual",
-                    conversation_context=quotation.project_description
+                    conversation_context=quotation.project_description,
+                    cfg=desc_cfg,
                 )
 
-            # Generate itemized price breakdown (NEW)
-            price_breakdown = self._get_item_breakdown(name, category, unit_price, language="bilingual")
+            # Generate itemized price breakdown
+            price_breakdown = await self._get_item_breakdown(name, category, unit_price, language="bilingual")
 
             material_items.append({
                 "name": name,
@@ -862,72 +936,33 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
 
             total_material_cost += item_cost
 
-        # Step 4: Calculate labor costs
+        # Step 4: Calculate labor costs (room-aware)
         labor_trades = []
         total_labor_cost = 0
 
-        # Trade-specific hour multipliers (hours per sqm)
-        # Based on Egyptian construction industry standards
-        TRADE_MULTIPLIERS = {
-            # Residential multipliers
-            "residential": {
-                "electrician": 1.5,      # Wiring, outlets, switches, lighting
-                "plumber": 1.2,          # Pipes, fixtures, sanitary
-                "tiler": 2.0,            # Floor + wall tiles
-                "painter": 1.8,          # Walls + ceilings (multiple coats)
-                "carpenter": 0.8,        # Doors, windows, built-ins
-                "mason": 1.0,            # General masonry work
-                "plasterer": 1.5,        # Wall + ceiling plastering
-                "welder": 0.3,           # Metal work
-                "supervisor": 0.5,       # Site supervision
-                "default": 1.0
-            },
-            # Commercial multipliers (banks, offices need more MEP work)
-            "commercial": {
-                "electrician": 2.5,      # More outlets, data points, security systems
-                "plumber": 1.8,          # More fixtures, complex drainage
-                "tiler": 2.2,            # Large floor areas
-                "painter": 2.0,          # More wall area, premium finishes
-                "carpenter": 1.2,        # Partitions, counters, doors
-                "mason": 0.8,            # Less masonry in commercial
-                "plasterer": 1.8,        # More ceiling work
-                "welder": 0.5,           # Metal partitions, security
-                "supervisor": 0.8,       # More supervision needed
-                "default": 1.2
-            },
-            # Factory/Industrial
-            "factory": {
-                "electrician": 3.0,      # Heavy electrical, 3-phase
-                "plumber": 1.5,          # Industrial plumbing
-                "tiler": 1.0,            # Less tiling
-                "painter": 1.2,          # Industrial paint
-                "carpenter": 0.5,        # Minimal carpentry
-                "mason": 1.5,            # More masonry
-                "plasterer": 1.0,        # Basic plastering
-                "welder": 2.0,           # Heavy metal work
-                "supervisor": 1.0,       # Supervision
-                "default": 1.0
-            }
-        }
-
-        # Get project type multipliers (default to commercial if unknown)
+        # Load trade multipliers from config service
+        config = get_config_service()
         project_type_lower = project_type.lower() if project_type else "residential"
-        if "bank" in project_type_lower or "office" in project_type_lower or "commercial" in project_type_lower or "تجاري" in project_type_lower:
-            multipliers = TRADE_MULTIPLIERS["commercial"]
-        elif "factory" in project_type_lower or "مصنع" in project_type_lower or "industrial" in project_type_lower:
-            multipliers = TRADE_MULTIPLIERS["factory"]
+        if any(kw in project_type_lower for kw in ["bank", "office", "commercial", "تجاري"]):
+            trade_type = "commercial"
+        elif any(kw in project_type_lower for kw in ["factory", "مصنع", "industrial"]):
+            trade_type = "factory"
         else:
-            multipliers = TRADE_MULTIPLIERS["residential"]
+            trade_type = "residential"
+        multipliers = await config.get_trade_multipliers(trade_type)
 
-        # Finishing level adjustment
+        # Finishing level adjustment from config
         finishing_adjustment = 1.0
         target_finish = (extracted_data.get("target_finish_level") or "").lower()
-        if "luxury" in target_finish or "فاخر" in target_finish:
-            finishing_adjustment = 1.4  # Luxury needs more labor hours
-        elif "premium" in target_finish or "ممتاز" in target_finish:
-            finishing_adjustment = 1.2
-        elif "economy" in target_finish or "اقتصادي" in target_finish:
-            finishing_adjustment = 0.8
+        luxury_kws = await config.get_config("finishing_keywords_luxury") or ["luxury", "فاخر"]
+        premium_kws = await config.get_config("finishing_keywords_premium") or ["premium", "ممتاز"]
+        economy_kws = await config.get_config("finishing_keywords_economy") or ["economy", "اقتصادي"]
+        if any(kw in target_finish for kw in luxury_kws):
+            finishing_adjustment = await config.get_config("finishing_adjustment_luxury") or 1.4
+        elif any(kw in target_finish for kw in premium_kws):
+            finishing_adjustment = await config.get_config("finishing_adjustment_premium") or 1.2
+        elif any(kw in target_finish for kw in economy_kws):
+            finishing_adjustment = await config.get_config("finishing_adjustment_economy") or 0.8
 
         if labor_rates:
             for labor in labor_rates:
@@ -937,15 +972,26 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
 
                 role_lower = str(role).lower()
 
-                # Find matching multiplier for this trade
+                # Find the matching trade key for base multiplier
+                matched_trade_key = "default"
                 trade_multiplier = multipliers.get("default", 1.0)
                 for trade_key in multipliers.keys():
-                    if trade_key in role_lower:
+                    if trade_key != "default" and trade_key in role_lower:
                         trade_multiplier = multipliers[trade_key]
+                        matched_trade_key = trade_key
                         break
 
-                # Calculate hours for this trade
-                role_hours = size_sqm * trade_multiplier * finishing_adjustment
+                # Room-aware: accumulate hours across rooms
+                role_hours = 0.0
+                for room in room_breakdown:
+                    rtype = room["room_type"]
+                    rarea = room["area_sqm"]
+                    room_labor_mult = await self._get_room_labor_multiplier(
+                        rtype, matched_trade_key
+                    )
+                    role_hours += rarea * trade_multiplier * room_labor_mult
+
+                role_hours *= finishing_adjustment
 
                 hourly_rate = labor.get("hourly_rate", 0)
                 if hourly_rate is None:
@@ -971,10 +1017,14 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
 
         logger.info(f"Labor calculation: {len(labor_trades)} trades, total cost: {total_labor_cost:.2f} EGP")
 
-        # Step 5: Calculate total
+        # Step 5: Calculate total using config-driven percentages
+        contingency_pct = await config.get_config("contingency_percentage") or 0.10
+        markup_pct = await config.get_config("markup_percentage") or 0.10
+        overhead_split = await config.get_config("markup_overhead_split") or 0.5
+
         subtotal = total_material_cost + total_labor_cost
-        contingency = subtotal * 0.10
-        markup = subtotal * 0.10
+        contingency = subtotal * contingency_pct
+        markup = subtotal * markup_pct
         total_cost = subtotal + contingency + markup
 
         cost_breakdown = {
@@ -990,15 +1040,15 @@ Return each item as a short keyword (1-3 words), NOT full descriptions or markdo
             },
             "contingency": {
                 "subtotal": round(contingency, 2),
-                "percentage": 10.0,
+                "percentage": round(contingency_pct * 100, 1),
                 "rationale": "Standard contingency for construction projects"
             },
             "markup": {
                 "subtotal": round(markup, 2),
-                "percentage": 10.0,
+                "percentage": round(markup_pct * 100, 1),
                 "breakdown": {
-                    "overhead": round(markup * 0.5, 2),
-                    "profit": round(markup * 0.5, 2)
+                    "overhead": round(markup * overhead_split, 2),
+                    "profit": round(markup * (1 - overhead_split), 2)
                 }
             }
         }

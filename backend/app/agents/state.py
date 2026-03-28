@@ -26,5 +26,8 @@ class QuotationAgentState(TypedDict):
     processing_context: Dict[str, Any]
     iteration_count: int
     
+    # Language detected by intent classifier ("ar" or "en")
+    detected_language: Optional[str]
+
     # Results (for final outputs)
     results: Dict[str, Any]

@@ -19,118 +19,11 @@ from langchain_core.tools import tool
 from app.utils.tool_cache import get_cached_result, set_cached_result
 from app.utils.quotation_descriptions import get_category_description
 from app.utils.language_detector import detect_language
+from app.utils.category_utils import detect_category as _detect_category_from_name, extract_details_from_context as _extract_details_from_context
 import os
 import datetime
 
 logger = logging.getLogger(__name__)
-
-# Helper function to detect category from item name
-def _detect_category_from_name(item_name: str) -> str:
-    """Auto-detect category from item name using keyword matching"""
-    item_lower = item_name.lower()
-    
-    # Flooring
-    if any(kw in item_lower for kw in ['flooring', 'tile', 'ceramic', 'porcelain', 'marble', 'parquet', 'أرضيات', 'سيراميك', 'بورسلين', 'رخام']):
-        return "flooring"
-    # Painting
-    elif any(kw in item_lower for kw in ['paint', 'painting', 'دهان', 'دهانات', 'طلاء']):
-        return "painting"
-    # Plastering
-    elif any(kw in item_lower for kw in ['plaster', 'plastering', 'بياض', 'محارة', 'تخشين']):
-        return "plastering"
-    # Plumbing
-    elif any(kw in item_lower for kw in ['plumbing', 'plumber', 'sanitaryware', 'toilet', 'sink', 'shower', 'سباكة', 'مواسير', 'حمام']):
-        return "plumbing"
-    # Electrical
-    elif any(kw in item_lower for kw in ['electrical', 'electrician', 'wiring', 'كهرباء', 'أسلاك', 'مفاتيح']):
-        return "electrical"
-    # Carpentry
-    elif any(kw in item_lower for kw in ['carpentry', 'carpenter', 'door', 'window', 'نجارة', 'أبواب', 'شبابيك']):
-        return "carpentry"
-    # Demolition
-    elif any(kw in item_lower for kw in ['demolition', 'breaking', 'هدم', 'تكسير']):
-        return "demolition"
-    
-    return "General"
-
-# Helper function to extract details from conversation context
-def _extract_details_from_context(item_name: str, context: str, existing_details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Extract additional details from conversation context to enrich item_details"""
-    if not context:
-        return {}
-    
-    if existing_details is None:
-        existing_details = {}
-    
-    context_lower = context.lower()
-    item_lower = item_name.lower()
-    extracted = {}
-    
-    # Extract brand mentions
-    brand_keywords = ['knauf', 'jotun', 'sico', 'italian', 'carrara', 'egyptian', 'local']
-    for brand in brand_keywords:
-        if brand in context_lower:
-            if brand == 'italian' and 'carrara' in context_lower:
-                extracted['brand'] = 'Italian Carrara'
-            elif brand == 'knauf':
-                extracted['brand'] = 'White Knauf'
-            elif brand == 'jotun':
-                extracted['brand'] = 'Jotun'
-            elif brand == 'sico':
-                extracted['brand'] = 'Sico'
-            elif not existing_details.get('brand'):
-                extracted['brand'] = brand.capitalize()
-            break
-    
-    # Extract color mentions
-    color_keywords = ['white', 'beige', 'light beige', 'medium beige', 'dark', 'black', 'cream', 'brown']
-    for color in color_keywords:
-        if color in context_lower:
-            extracted['color'] = color.title()
-            break
-    
-    # Extract finish mentions
-    finish_keywords = ['matt', 'matte', 'glossy', 'semi-glossy', 'semi glossy', 'satin']
-    for finish in finish_keywords:
-        if finish in context_lower:
-            extracted['finish'] = finish.title()
-            break
-    
-    # Extract dimension mentions (basic pattern matching)
-    dimension_patterns = [
-        r'(\d+)\s*x\s*(\d+)\s*cm',
-        r'(\d+)\s*cm\s*x\s*(\d+)\s*cm',
-        r'(\d+)\s*mm',
-        r'h\s*=\s*(\d+)\s*mm',
-    ]
-    for pattern in dimension_patterns:
-        match = re.search(pattern, context_lower)
-        if match:
-            if 'x' in pattern:
-                extracted['dimensions'] = f"{match.group(1)}X{match.group(2)} cm"
-            elif 'h' in pattern:
-                extracted['dimensions'] = f"H = {match.group(1)} mm"
-            else:
-                extracted['dimensions'] = f"{match.group(1)} mm"
-            break
-    
-    # Extract context/application area
-    area_keywords = ['sales area', 'boh', 'back office', 'safe room', 'bathroom', 'kitchen', 'living room', 'bedroom']
-    for area in area_keywords:
-        if area in context_lower:
-            extracted['context'] = f"for {area.title()}" if 'for' not in area else area.title()
-            break
-    
-    # Extract specifications/features
-    spec_keywords = ['suspended', 'access doors', 'shadow gap', 'premium', 'luxury', 'standard']
-    specs = []
-    for spec in spec_keywords:
-        if spec in context_lower:
-            specs.append(spec.title())
-    if specs:
-        extracted['specifications'] = ', '.join(specs)
-    
-    return extracted
 
 # Helper functions for query normalization and keyword extraction
 def normalize_query(query: str) -> str:

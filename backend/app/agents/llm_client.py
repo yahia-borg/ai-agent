@@ -7,15 +7,18 @@ from langchain_ollama import ChatOllama
 
 class LLMClient:
     """Unified LLM client that supports OpenAI, Anthropic, and Ollama"""
-    
-    def __init__(self):
+
+    def __init__(self, base_url_override: Optional[str] = None, model_override: Optional[str] = None,
+                 max_tokens_override: Optional[int] = None):
         self.provider = settings.LLM_PROVIDER.lower()
-        self.model = settings.MODEL_NAME
-        
+        self.model = model_override or settings.MODEL_NAME
+
         if self.provider == "openai":
             if not settings.RUNPOD_API_KEY:
                 raise ValueError("RUNPOD_API_KEY not set in environment")
-            
+
+            base_url = base_url_override or settings.RUNPOD_BASE_URL
+
             kwargs = {
                 "model": self.model,
                 "temperature": 0.2,
@@ -23,14 +26,14 @@ class LLMClient:
                 "streaming": False,
                 "top_p": 0.7,
                 "frequency_penalty": 1.2,
-                "max_tokens": 8192,  # Prevent truncation
+                "max_tokens": max_tokens_override or 4096,
                 "default_headers": {
                     "Authorization": f"Bearer {settings.RUNPOD_API_KEY}"
                 }
             }
-            if settings.RUNPOD_BASE_URL:
-                kwargs["base_url"] = settings.RUNPOD_BASE_URL
-            
+            if base_url:
+                kwargs["base_url"] = base_url
+
             self.client = ChatOpenAI(**kwargs)
         elif self.provider == "anthropic":
             if not settings.ANTHROPIC_API_KEY:
@@ -94,13 +97,35 @@ class LLMClient:
         return response.content
 
 
-# Global LLM client instance
+# Global LLM client instances
 _llm_client: Optional[LLMClient] = None
+_response_llm_client: Optional[LLMClient] = None
 
 
 def get_llm_client() -> LLMClient:
-    """Get or create LLM client singleton"""
+    """Get or create LLM client singleton (used for tool calls)"""
     global _llm_client
     if _llm_client is None:
         _llm_client = LLMClient()
     return _llm_client
+
+
+def get_response_llm_client() -> LLMClient:
+    """
+    Get or create a separate LLM client for final user-facing responses.
+    Uses RESPONSE_LLM_BASE_URL if configured, otherwise falls back to the main client.
+    """
+    global _response_llm_client
+    if _response_llm_client is not None:
+        return _response_llm_client
+
+    if settings.RESPONSE_LLM_BASE_URL:
+        _response_llm_client = LLMClient(
+            base_url_override=settings.RESPONSE_LLM_BASE_URL,
+            model_override=settings.RESPONSE_LLM_MODEL or None,
+            max_tokens_override=1024,  # Response LLM: leave headroom for long conversations
+        )
+        return _response_llm_client
+
+    # No separate response LLM configured — use the main one
+    return get_llm_client()

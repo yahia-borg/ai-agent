@@ -2,54 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Arabic font support - use system fonts that support Arabic */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-  --font-arabic: 'Noto Sans Arabic', 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
-}
-
-/* Global font stack with Arabic support */
-html {
-  font-family: 'Inter', var(--font-arabic), system-ui, sans-serif;
-}
-
-/* Ensure inputs render Arabic correctly */
-input, textarea {
-  font-family: inherit;
-  /* Prevent ligature issues with Arabic */
-  font-feature-settings: "liga" 0;
-}
-
-/* RTL support for Arabic content */
-[dir="rtl"],
-*:lang(ar) {
-  font-family: var(--font-arabic), sans-serif;
-  text-align: right;
-}
-
-/* Arabic numerals styling */
-.arabic-numerals {
-  font-variant-numeric: tabular-nums;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    /* Dark theme by default */
+    --background: 220 16% 10%;
+    --foreground: 210 20% 92%;
+    --card: 220 16% 13%;
+    --card-foreground: 210 20% 92%;
+    --popover: 220 16% 13%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 18%;
+    --secondary-foreground: 210 20% 85%;
+    --muted: 220 14% 18%;
+    --muted-foreground: 215 14% 52%;
+    --accent: 220 14% 18%;
+    --accent-foreground: 210 20% 85%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 20%;
+    --input: 220 14% 18%;
+    --ring: 24 95% 53%;
+    --radius: 0.75rem;
+    --sidebar-bg: 220 18% 8%;
+    --font-arabic: 'Noto Sans Arabic', 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+  }
+
+  .dark {
+    --background: 220 16% 10%;
+    --foreground: 210 20% 92%;
+    --card: 220 16% 13%;
+    --card-foreground: 210 20% 92%;
+    --popover: 220 16% 13%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 18%;
+    --secondary-foreground: 210 20% 85%;
+    --muted: 220 14% 18%;
+    --muted-foreground: 215 14% 52%;
+    --accent: 220 14% 18%;
+    --accent-foreground: 210 20% 85%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 20%;
+    --input: 220 14% 18%;
+    --ring: 24 95% 53%;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', var(--font-arabic), system-ui, sans-serif;
+  }
+  html {
+    font-family: 'Inter', var(--font-arabic), system-ui, sans-serif;
+  }
+}
+
+/* Arabic / RTL support */
+[dir="rtl"],
+*:lang(ar) {
+  font-family: var(--font-arabic), sans-serif;
+}
+
+/* Auto-detect RTL for messages */
+.message-content[dir="rtl"] {
+  text-align: right;
+}
+
+input, textarea {
+  font-family: inherit;
+  font-feature-settings: "liga" 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
 }

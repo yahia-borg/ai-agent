@@ -77,13 +77,12 @@ class ConversationalAgent:
             # Note: quotation_id might be None initially - tools will create it
             initial_state: QuotationAgentState = {
                 "messages": langchain_messages,
-                "quotation_id": quotation_id or session_id,  # Fallback to session_id for compatibility
-                "session_id": session_id,  # Add session_id to state
+                "quotation_id": quotation_id or session_id,
+                "session_id": session_id,
                 "status": "PROCESSING",
                 "current_phase": "GATHERING",
                 "finish_levels": {},
                 "processing_context": {
-                    # Legacy fields moved here for backward compatibility
                     "extracted_data": {},
                     "confidence_score": 0.0,
                     "needs_followup": False,
@@ -93,6 +92,7 @@ class ConversationalAgent:
                     "error": None
                 },
                 "iteration_count": 0,
+                "detected_language": None,
                 "results": {}
             }
 
@@ -138,17 +138,29 @@ class ConversationalAgent:
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process a single stream update and route to appropriate handler.
-        Uses state machine pattern for clarity.
+        Handles nodes: cache_check, intent_classifier, supervisor, tools, response.
         """
-        # Route based on update type
-        if "supervisor" in state_update:
+        if "cache_check" in state_update:
+            # Command-based node: value may be None (miss) or contain messages (hit)
+            node_data = state_update["cache_check"]
+            if node_data and isinstance(node_data, dict):
+                async for chunk in self._stream_supervisor_update(node_data, stream_state):
+                    yield chunk
+            else:
+                logger.debug("Cache check completed (miss or routing)")
+        elif "intent_classifier" in state_update:
+            # Command-based node: routes internally, no user-facing output
+            logger.debug("Intent classifier completed routing")
+        elif "supervisor" in state_update:
             async for chunk in self._stream_supervisor_update(state_update["supervisor"], stream_state):
+                yield chunk
+        elif "response" in state_update:
+            async for chunk in self._stream_supervisor_update(state_update["response"], stream_state):
                 yield chunk
         elif "tools" in state_update:
             async for chunk in self._stream_tool_update(state_update["tools"], stream_state):
                 yield chunk
         else:
-            # Unknown update type - log for debugging
             logger.debug(f"Unknown stream update type: {list(state_update.keys())}")
 
     async def _stream_supervisor_update(
@@ -157,7 +169,8 @@ class ConversationalAgent:
         stream_state: Dict[str, Any]
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Handle supervisor node updates - stream LLM tokens.
+        Handle supervisor/response node updates - stream LLM tokens.
+        Filters out supervisor "DONE" signals that are not user-facing.
         """
         messages = supervisor_state.get("messages", [])
         if not messages:
@@ -171,8 +184,11 @@ class ConversationalAgent:
             has_tool_calls = hasattr(last_message, 'tool_calls') and last_message.tool_calls
 
             if not has_tool_calls:
-                # This is a final response to the user - stream it
                 content = last_message.content
+                # Filter out supervisor "DONE" signal — not user-facing
+                if content and content.strip().upper() == "DONE":
+                    logger.debug("Filtering out supervisor DONE signal from stream")
+                    return
                 if content:
                     full_content = stream_state["full_content"]
                     if content not in full_content:

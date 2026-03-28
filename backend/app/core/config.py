@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     RUNPOD_ENDPOINT_ID: str = ""
     RUNPOD_API_KEY: str = ""
     RUNPOD_BASE_URL: str = ""
+
+    # Separate LLM for final conversational responses (optional)
+    # If set, final user-facing responses use this endpoint instead of RUNPOD_BASE_URL
+    RESPONSE_LLM_BASE_URL: str = ""
+    RESPONSE_LLM_MODEL: str = ""  # Falls back to MODEL_NAME if empty
     
     # Anthropic Configuration (recommended alternative)
     ANTHROPIC_API_KEY: str = ""

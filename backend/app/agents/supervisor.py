@@ -5,8 +5,6 @@ from app.agents.tools_wrapper import (
     collect_project_data,
     calculate_costs,
     resolve_quotation,
-    extract_project_requirements,
-    save_project_data
 )
 from app.agent.tools import search_materials, search_labor_rates, search_standards, export_quotation_pdf, export_quotation_excel
 from app.agents.state import QuotationAgentState
@@ -17,23 +15,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# List of tools available to the Supervisor
+# Tools available to the Supervisor (8 tools, down from 11)
 SUPERVISOR_TOOLS = [
-    # Convenience wrapper (backward compatible)
     collect_project_data,
-    # Focused tools (use for better control)
     resolve_quotation,
-    extract_project_requirements,
-    save_project_data,
-    # Cost calculation
     calculate_costs,
-    # Search tools
     search_materials,
     search_labor_rates,
     search_standards,
-    # Export tools
     export_quotation_pdf,
-    export_quotation_excel
+    export_quotation_excel,
 ]
 
 from app.core.database import SessionLocal
@@ -53,14 +44,17 @@ class SupervisorAgent:
     def _build_state_checklist(self, q_data: Optional[QuotationData]) -> str:
         """Build dynamic state checklist for prompt."""
         if not q_data or not q_data.extracted_data:
-            return "❌ Size: Missing | ❌ Type: Missing | ❌ Finish Levels: Missing"
-        
+            return "❌ Size: Missing | ❌ Type: Missing | ❌ Finish Levels: Missing | ❌ Rooms: Missing"
+
         extracted = q_data.extracted_data or {}
         size = extracted.get("size_sqm")
         p_type = extracted.get("project_type")
         current = extracted.get("current_finish_level", "?")
         target = extracted.get("target_finish_level", "?")
-        
+        rooms = extracted.get("rooms", [])
+        num_bathrooms = extracted.get("num_bathrooms")
+        num_kitchens = extracted.get("num_kitchens")
+
         checklist = []
         checklist.append("✅" if size else "❌")
         checklist.append(f"Size: {size} sqm" if size else "Size: Missing")
@@ -68,14 +62,28 @@ class SupervisorAgent:
         checklist.append(f"Type: {p_type}" if p_type and p_type != "Unknown" else "Type: Missing")
         checklist.append("✅" if current and current != "?" and target and target != "?" else "❌")
         checklist.append(f"Finish: {current}→{target}" if current and current != "?" and target and target != "?" else "Finish: Missing")
-        
+
+        # Room breakdown check
+        has_rooms = bool(rooms) or (num_bathrooms is not None and num_kitchens is not None)
+        if has_rooms:
+            room_summary_parts = []
+            if rooms:
+                room_summary_parts.append(f"{len(rooms)} spaces")
+            if num_bathrooms is not None:
+                room_summary_parts.append(f"{num_bathrooms} bath")
+            if num_kitchens is not None:
+                room_summary_parts.append(f"{num_kitchens} kitchen")
+            checklist.append(f"✅ Rooms: {', '.join(room_summary_parts)}")
+        else:
+            checklist.append("❌ Rooms: Missing breakdown")
+
         if q_data.total_cost:
             checklist.append("✅ Cost: Calculated")
         elif q_data.cost_breakdown:
             checklist.append("⏳ Cost: In Progress")
         else:
             checklist.append("❌ Cost: Not Started")
-        
+
         return " | ".join(checklist)
     
     def get_system_prompt(self, quotation_id: str) -> str:
@@ -118,89 +126,70 @@ class SupervisorAgent:
             db.close()
         
         max_info_len = settings.MAX_ADDITIONAL_INFO_LENGTH
-        
-        # ReAct prompt following LangGraph best practices
-        prompt = f"""You are an expert Construction Finishing Supervisor for the Egyptian market. Your goal is to provide accurate quotations by systematically gathering data and calculating costs.
 
-=== REACT REASONING CYCLE ===
+        # Tool-routing prompt — NO user-facing text generation
+        complete_override = ""
+        if current_phase == "COMPLETE":
+            complete_override = f"""
+⚠️ PHASE = COMPLETE — READ THIS FIRST ⚠️
+The quotation is ALREADY FINISHED with calculated costs.
+- Do NOT call collect_project_data
+- Do NOT call calculate_costs
+- ONLY call export_quotation_pdf if the user explicitly asks to download or export a PDF
+- ONLY call export_quotation_excel if the user explicitly asks to download or export Excel
+- For ALL other messages (questions, thanks, clarifications): output exactly "DONE"
+"""
 
-1. THINK: 
-   - Read the DYNAMIC STATE checklist below
-   - Analyze what data is present (✅) vs missing (❌)
-   - Determine what the user is asking for
-   - Decide which tool(s) to use based on state, not assumptions
+        prompt = f"""You are a Construction Quotation Tool Router.
+Your ONLY job is to call tools to gather project data and calculate costs.
+You do NOT write user-facing responses. A separate response agent handles that.
+{complete_override}
+=== IMPORTANT: WHEN TO CALL TOOLS ===
 
-2. ACT:
-   - Call the appropriate tool(s) based on your analysis
-   - Use exact quotation_id: {quotation_id}
-   - Keep tool arguments concise ({max_info_len} chars max)
+Look at the STATE CHECKLIST below. If ANY field shows ❌, you MUST call a tool.
 
-3. OBSERVE:
-   - Read tool outputs carefully
-   - Update your understanding of the current state
-   - Note any errors or missing data
+1. If user mentions ANY construction/finishing details (size, type, rooms, finish level):
+   → ALWAYS call collect_project_data(quotation_id="{quotation_id}", additional_info="<summary of what user said>")
+   This is your PRIMARY action. When in doubt, call collect_project_data.
 
-4. REFLECT:
-   - Check if you have enough data to proceed
-   - If all required data is ✅, move to next phase
-   - If data is ❌, gather it first
-   - Stop when task is complete
+2. If checklist shows ✅ for Size AND Type AND Finish AND Rooms:
+   → Call calculate_costs(quotation_id="{quotation_id}")
 
-=== DECISION TREE (CHECK STATE CHECKLIST FIRST) ===
+3. If user asks about material prices → call search_materials
+4. If user asks about labor rates → call search_labor_rates
+5. If user asks about standards → call search_standards
+6. If user asks for PDF/Excel export → call export_quotation_pdf or export_quotation_excel
 
-STEP 1: Check DYNAMIC STATE checklist below:
-- If checklist shows ✅ for Size AND ✅ for Type AND ✅ for Finish Levels:
-  → PROCEED to calculate_costs (DO NOT ask for confirmation - data exists!)
-- If checklist shows ❌ for Size OR ❌ for Type OR ❌ for Finish Levels:
-  → Call collect_project_data to extract missing information
-- If checklist shows ✅ Cost: Calculated:
-  → You're done - provide summary or ask if user wants export
+=== WHEN TO OUTPUT "DONE" ===
 
-STEP 2: Handle user requests:
-- User asks "what materials?" or "prices?" → search_materials/search_labor_rates
-- User asks "what standards?" or "specifications?" → search_standards
-- User asks "export PDF/Excel" → export_quotation_pdf/excel
+Output exactly "DONE" (no other text) ONLY when:
+- ✅ Cost: Calculated (quotation is complete)
+- The last ToolMessage contains "Cost Calculation Complete" → STOP, output DONE immediately
+- All fields are ✅ EXCEPT Rooms (response agent will ask the user)
+- Tool output contains "Follow-up Needed" (response agent will ask the user)
+- Tool output says "Missing Info" and you already called collect_project_data this turn
+- User is just chatting (no construction data to extract)
 
-STEP 3: After calculate_costs completes:
-- Provide cost breakdown to user
-- Ask if they want to export or adjust anything
-- DO NOT call calculate_costs again if already calculated
+=== LOOP PREVENTION ===
+- NEVER call calculate_costs more than once per turn
+- After calculate_costs returns success ("Cost Calculation Complete"), output DONE
+- After calculate_costs returns an error, call collect_project_data ONCE then try calculate_costs again
+- If you have called both collect_project_data AND calculate_costs already, output DONE
 
-=== CRITICAL RULES ===
+=== RULES ===
 
-1. TRUST THE STATE CHECKLIST: If checklist shows ✅, the data exists - proceed immediately
-2. DO NOT ask for data that's already in the checklist (✅ means it's present)
-3. Only ask questions if checklist shows ❌ for required fields
-4. After calculate_costs completes, stop and present results
-5. Never hallucinate prices - only use data from tools
-6. Batch searches: 2-3 tool calls max per turn
+- Keep additional_info SHORT ({max_info_len} chars max) — just the key facts
+- Use quotation_id: {quotation_id}
+- For bank/hospital/hotel/school → project_type is ALWAYS "commercial"
+- Never generate user-facing text, only tool calls or "DONE"
+- Never hallucinate prices — only use data from tools
+- Batch: 2-3 tool calls max per turn
 
-=== AVAILABLE TOOLS ===
-
-- collect_project_data: Extract project info from description
-- calculate_costs: Calculate cost breakdown (requires Size + Type + Finish Levels)
-- search_materials: Search material prices (keywords: 1-3 words)
-- search_labor_rates: Search labor rates (keywords: 1-3 words)
-- search_standards: Search technical standards (keywords: 1-5 words)
-- export_quotation_pdf: Export quotation as PDF
-- export_quotation_excel: Export quotation as Excel
-
-=== OUTPUT FORMATTING ===
-
-- Use Western numerals (0-9), never Eastern Arabic (٠١٢٣٤٥٦٧٨٩)
-- Format prices: "125,000 EGP" (comma for thousands)
-- Markdown tables: | Header | Header |\\n|--------|--------|\\n| Data | Data |
-- No special Unicode characters
-- Lists: Use "1." or "-" only
-- Keep responses concise and structured
-
-=== DYNAMIC STATE (CHECK THIS FIRST) ===
+=== CURRENT STATE (CHECK THIS FIRST) ===
 
 Phase: {current_phase}
 State Checklist: {state_checklist}
-Quotation ID: {quotation_id}
-
-Remember: If the checklist shows ✅ for all required fields, proceed to calculate_costs immediately. Do not ask for confirmation."""
+Quotation ID: {quotation_id}"""
         
         return prompt
 

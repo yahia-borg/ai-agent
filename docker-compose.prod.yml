@@ -40,6 +40,7 @@ services:
       OPENAI_API_BASE: ${OPENAI_API_BASE:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       MODEL_NAME: ${MODEL_NAME:-}
+      REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
@@ -50,6 +51,8 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       qdrant:
         condition: service_healthy
@@ -80,6 +83,21 @@ services:
     networks:
       - app-network
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
   qdrant:
     image: qdrant/qdrant:latest
     ports:
@@ -101,6 +119,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   qdrant_data:
 
 networks:

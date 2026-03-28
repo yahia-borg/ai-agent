@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import HumanMessage
 import logging
 
 from app.agents.state import QuotationAgentState
@@ -60,12 +61,14 @@ class LangGraphOrchestrator:
                 quotation.status = QuotationStatus.PROCESSING
                 await async_db.commit()
 
-            # Initialize State
-            # Note: We don't load the full chat history from DB here because 
-            # this orchestrator is often called for background tasks or initial API calls.
-            # If "ConversationalAgent" is unified, we'd pass existing history.
+            # Initialize State — seed with the project description so the Supervisor
+            # has user context and knows to call collect_project_data immediately.
+            seed_messages = []
+            if quotation.project_description:
+                seed_messages = [HumanMessage(content=quotation.project_description)]
+
             initial_state: QuotationAgentState = {
-                "messages": [], # Start empty, let Supervisor fetch data via tools
+                "messages": seed_messages,
                 "quotation_id": quotation_id,
                 "status": quotation.status.value,
                 "current_phase": "GATHERING",
@@ -81,6 +84,7 @@ class LangGraphOrchestrator:
                     "error": None
                 },
                 "iteration_count": 0,
+                "detected_language": None,
                 "results": {}
             }
             

@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'AI Construction Agent',
-  description: 'AI-powered construction quotation generation system',
+  title: 'BuildAI — Construction Quotation Agent',
+  description: 'AI-powered construction cost estimation for the Egyptian market',
 }
 
 export default function RootLayout({
@@ -12,9 +12,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        {children}
+      </body>
     </html>
   )
 }
-

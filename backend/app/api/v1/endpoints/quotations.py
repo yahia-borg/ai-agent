@@ -18,7 +18,7 @@ from app.schemas.quotation import (
     QuotationDetailResponse,
     QuotationDataResponse
 )
-from app.agents.orchestrator import AgentOrchestrator
+from app.agents.langgraph_orchestrator import LangGraphOrchestrator
 from app.services.pdf_generator import PDFGenerator
 from app.services.excel_generator import ExcelGenerator
 from app.core.exceptions import QuotationNotFoundError, QuotationNotCompletedError
@@ -29,7 +29,7 @@ from app.utils.validators import (
 )
 
 router = APIRouter()
-orchestrator = AgentOrchestrator()
+orchestrator = LangGraphOrchestrator()
 pdf_generator = PDFGenerator()
 excel_generator = ExcelGenerator()
 

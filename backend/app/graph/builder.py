@@ -1,114 +1,60 @@
 """
-Optimized graph builder: LLM Intent Router + Redis Cache + Dual-LLM ReAct.
+Optimized graph builder: LLM Intent Router + Redis Cache + Deterministic Workflow.
 
 Graph structure:
   START -> cache_check -> (HIT) -> END
                        -> (MISS) -> intent_classifier (8061)
                                       -> "response" -> response_node (8061) -> END
-                                      -> "supervisor" -> supervisor_node (8021, tools)
-                                                           -> tools -> supervisor (loop)
+                                      -> "workflow"  -> workflow_node (deterministic)
                                                            -> response_node (8061) -> END
+
+The workflow_node replaces the old Mistral supervisor LLM for tool routing.
+All tool selection is now pure Python logic (DB state + keyword checks).
+Mistral (8021) is only called inside DataCollectorAgent for NLP extraction.
 """
-from typing import Dict, Any, Literal, Optional
+from typing import Dict, Any, Optional
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, ToolMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, SystemMessage
 import logging
 
 from app.agents.state import QuotationAgentState
-from app.agents.supervisor import SupervisorAgent, SUPERVISOR_TOOLS
-from app.core.config import settings
+from app.graph.workflow_node import workflow_node
 
 logger = logging.getLogger(__name__)
 
 
 # ─── Response Prompt (for 8061) ────────────────────────────────────────
 
-RESPONSE_SYSTEM_PROMPT = """You are an expert Construction Finishing Advisor for the Egyptian market.
-You work for a construction company. You ARE the advisor — not a middleman or referral service.
+# Two slim prompts (≈150 tokens each). The old ~1000-token prompt drove the
+# response model into degeneration loops (the bank-branch meltdown). Per the
+# research finding, prompt length is the dominant factor — short + single-purpose.
+# Numbers are rendered in Python (utils.cost_formatter), so the LLM never types money.
 
-=== YOUR ROLE ===
-You are the RESPONSE generator in a multi-agent system:
-- A separate tool-calling agent gathers data and calculates costs using real database prices
-- You ONLY format and present results, or ask follow-up questions to collect missing data
-- You NEVER invent, estimate, or hallucinate prices, costs, or material rates
-- If tool results contain cost data, present it clearly
-- If no tool results exist yet, guide the user through data collection
+COLLECTION_PROMPT = """You are a construction finishing advisor for the Egyptian market. You handle everything yourself — never refer the user elsewhere.
 
-=== DATA COLLECTION FLOW ===
-When the user wants a quotation and data is still being gathered (Phase: GATHERING):
-1. Ask for missing information ONE topic at a time:
-   - Project type (apartment/villa/office/commercial)
-   - Size in sqm (if not mentioned)
-   - Current finish level (core shell / on plaster / semi-finished)
-   - Target finish level (fully finished / luxury / etc.)
-   - Room breakdown (bedrooms, bathrooms, kitchens, living areas)
-2. Acknowledge what the user already provided
-3. Do NOT provide cost estimates — wait for the calculation tools
-4. Keep your response SHORT (3-5 sentences max). Just confirm and ask the next question.
+Rules:
+- Reply ONLY in Egyptian Arabic (اللهجة المصرية), even if the user writes English. Use Western digits 0-9 (never ٠١٢٣).
+- Keep it to 2-3 sentences: acknowledge what the user gave, then ask for the NEXT missing item.
+- If a "DATA SO FAR" section is shown below, ask only for the first thing under "Missing Info". For a commercial project you may also briefly ask about the layout (number of floors / offices / rooms) — it improves the quote.
+- NEVER invent prices, costs, or material rates. NEVER tell the user to consult someone else. No download links.
+- Don't ask about timelines, colors, or design style.
 
-=== ABSOLUTE PROHIBITIONS ===
-- NEVER make up prices, cost ranges, or material rates (e.g. "35,000 to 70,000 EGP per sqm")
-- NEVER say "consult a specialist" or "contact a contractor" or "استشارة متخصصين"
-- NEVER suggest the user go somewhere else — YOU handle everything
-- NEVER generate fake download links or URLs
-- NEVER list materials, costs, or technical details unless they come from tool results
-- NEVER give general construction advice or material recommendations unprompted
-- If you don't have tool results with costs, just say you're preparing the quotation
-
-=== WHAT TO DO INSTEAD ===
-- If user provides project details → confirm receipt, ask for the NEXT missing piece
-- If user asks for quotation → say you're calculating it (tools handle this)
-- If cost data exists in conversation → present it in a clear table
-- If user asks general question → answer briefly, stay focused on their project
-
-=== LANGUAGE RULES ===
-- ALWAYS respond in Egyptian Arabic (اللهجة المصرية العامية), regardless of what language the user writes in
-- Even if the user writes in English, reply in Egyptian Arabic
-- Use natural Egyptian dialect (e.g. "إيه", "عايز", "بتاع", "ازيك", "تمام") — not formal Modern Standard Arabic
-- Numbers and prices must always be in Western digits: "125,000 EGP" (never Eastern Arabic ١٢٥٬٠٠٠)
-
-=== OUTPUT FORMATTING (CRITICAL) ===
-- ALWAYS use Western/English numerals (0-9), NEVER Eastern Arabic numerals (٠١٢٣٤٥٦٧٨٩)
-- ALWAYS write prices in English format: "125,000 EGP" (comma for thousands, Western digits)
-- NEVER use Arabic numerals like ۲۷,۰۰۰ or ٤٥,٠٠ٰ — always 27,000 or 45,000
-- Markdown tables for cost breakdowns
-- Keep responses concise and structured (max 10 lines unless presenting a cost table)
-
-=== CONTEXT ===
 Phase: {current_phase}
-Quotation ID: {quotation_id}
+"""
+
+COST_INTRO_PROMPT = """You are a construction finishing advisor for the Egyptian market.
+The full cost quotation table is shown to the user separately, right after your message — you do NOT write it.
+Write ONLY a 1-2 sentence intro in Egyptian Arabic (Western digits 0-9) presenting the quotation and inviting the user to request a PDF/Excel export or any adjustment.
+Do NOT list, restate, or invent any numbers, materials, or costs. No tables. No reasoning.
+
+Phase: {current_phase}
 """
 
 
-# ─── Routing Logic ─────────────────────────────────────────────────────
 
-def should_continue(
-    state: QuotationAgentState, max_iterations: Optional[int] = None
-) -> Literal["continue", "end"]:
-    """Determine if supervisor should loop (tools) or finish (response)."""
-    max_iter = max_iterations or getattr(settings, "MAX_ITERATIONS", 15)
-    messages = state.get("messages", [])
-    if not messages:
-        return "end"
-
-    last_message = messages[-1]
-    iteration = state.get("iteration_count", 0)
-
-    if iteration >= max_iter:
-        quotation_id = state.get("quotation_id", "unknown")
-        logger.warning(
-            f"Quotation {quotation_id} hit max iterations ({max_iter}). Force stopping."
-        )
-        return "end"
-
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        return "continue"
-
-    return "end"
-
+from app.core.config import settings
 
 # ─── Node: cache_check ─────────────────────────────────────────────────
 
@@ -142,44 +88,6 @@ async def cache_check_node(state: QuotationAgentState) -> Command:
 
     return Command(goto="intent_classifier")
 
-
-# ─── Node: supervisor ──────────────────────────────────────────────────
-
-async def supervisor_node(
-    state: QuotationAgentState, supervisor: SupervisorAgent
-) -> Dict[str, Any]:
-    """Run the Supervisor Agent (8021, tool-calling LLM)."""
-    from app.core.structured_logging import log_tool_selection
-
-    current_iteration = state.get("iteration_count", 0) + 1
-    quotation_id = state.get("quotation_id", "unknown")
-    session_id = state.get("session_id")
-    phase = state.get("current_phase", "UNKNOWN")
-
-    result = await supervisor.invoke(state)
-
-    # Log tool selections
-    messages = result.get("messages", [])
-    if messages:
-        last_message = messages[-1]
-        if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-            for tool_call in last_message.tool_calls:
-                tool_name = tool_call.get("name", "unknown")
-                reasoning = (
-                    last_message.content[:200]
-                    if hasattr(last_message, "content") and last_message.content
-                    else "Tool call from supervisor"
-                )
-                log_tool_selection(
-                    quotation_id=quotation_id,
-                    tool_name=tool_name,
-                    reasoning=reasoning,
-                    phase=phase,
-                    session_id=session_id,
-                    iteration=current_iteration,
-                )
-
-    return {"messages": result["messages"], "iteration_count": current_iteration}
 
 
 # ─── Node: response ────────────────────────────────────────────────────
@@ -254,15 +162,100 @@ def _build_clean_messages(messages, system_prompt: str):
     return clean
 
 
-async def response_node(
-    state: QuotationAgentState, supervisor: SupervisorAgent
-) -> Dict[str, Any]:
+def _has_usable_response(msgs):
+    """True if the last message is a real assistant reply (not DONE / tool calls)."""
+    if not msgs:
+        return False
+    last = msgs[-1]
+    if not isinstance(last, AIMessage):
+        return False
+    if hasattr(last, "tool_calls") and last.tool_calls:
+        return False
+    content = (last.content or "").strip()
+    return bool(content) and content.upper() != "DONE"
+
+
+def _engineering_questions_text(messages):
+    """Return the engineering-questions message if this turn produced one, else None.
+    The text is already grounded Egyptian Arabic (generated by engineering_node from
+    KB context), so it's presented verbatim — no LLM re-phrasing (which could drift)."""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            return None
+        if isinstance(msg, ToolMessage) and getattr(msg, "name", "") == "engineering_questions":
+            content = (msg.content or "").strip()
+            return content or None
+    return None
+
+
+def _is_cost_presentation_turn(messages) -> bool:
     """
-    Generate final user-facing response using the response LLM (8061).
-    Caches chat responses in Redis for future lookups.
+    True when calculate_costs ran on THIS turn — i.e. a 'Cost Calculation Complete'
+    ToolMessage sits after the most recent HumanMessage. On a later COMPLETE
+    follow-up turn (no new tool) this is False, so we don't re-render the table.
+    """
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            return False
+        if isinstance(msg, ToolMessage) and msg.content and "Cost Calculation Complete" in str(msg.content):
+            return True
+    return False
+
+
+async def _fetch_cost_data(quotation_id: str):
+    """Re-read the persisted cost_breakdown + total_cost so the table is rendered
+    in code from the source of truth (never from LLM-typed numbers)."""
+    from sqlalchemy import select
+    from app.core.db_context import get_or_create_async_db_session, db_session_context
+    from app.models.quotation import QuotationData
+    from app.utils.session_utils import resolve_quotation_id
+
+    db = await get_or_create_async_db_session()
+    should_close = db_session_context.get() is None
+    try:
+        quotation, _ = await resolve_quotation_id(quotation_id, db, create_if_missing=False)
+        if not quotation:
+            return None, None
+        res = await db.execute(
+            select(QuotationData).filter(QuotationData.quotation_id == quotation.id)
+        )
+        q = res.scalar_one_or_none()
+        if not q:
+            return None, None
+        return q.cost_breakdown, q.total_cost
+    finally:
+        if should_close:
+            await db.close()
+
+
+async def _generate_cost_intro(client, messages, current_phase: str) -> str:
+    """One short Arabic intro sentence. Bounded + fixed-fallback so a runaway
+    generation can never reach the user (the table is rendered separately)."""
+    fixed = "تمام، دي المقايسة التقديرية لمشروعك 👇 تقدر تطلب نسخة PDF أو Excel، أو تعدّل أي تفاصيل."
+    try:
+        clean = _build_clean_messages(messages, COST_INTRO_PROMPT.format(current_phase=current_phase))
+        resp = await client.client.ainvoke(clean)
+        text = (resp.content or "").strip()
+        if not text or len(text) > 600:
+            return fixed
+        return text
+    except Exception as e:
+        logger.warning(f"Cost intro generation failed, using fixed intro: {e}")
+        return fixed
+
+
+async def response_node(state: QuotationAgentState) -> Dict[str, Any]:
+    """
+    Produce the user-facing reply.
+
+    - Cost-presentation turn: render the BOQ table in Python from the persisted
+      cost_breakdown and let the LLM write only a 1-2 sentence intro. The model
+      never sees or re-types the figures (kills the degeneration meltdown).
+    - Otherwise: a slim conversational/collection turn (no cost numbers in prompt).
     """
     from app.agents.llm_client import get_response_llm_client, get_llm_client
     from app.services.response_cache import get_response_cache
+    from app.utils.cost_formatter import render_cost_table_markdown
 
     response_client = get_response_llm_client()
     tool_client = get_llm_client()
@@ -270,49 +263,43 @@ async def response_node(
     messages = state.get("messages", [])
     quotation_id = state.get("quotation_id", "unknown")
     current_phase = state.get("current_phase", "GATHERING")
+    lang = state.get("detected_language") or "ar"
 
-    # Check if last AI message is a real response (not "DONE" or tool calls)
-    def _has_usable_response(msgs):
-        if not msgs:
-            return False
-        last = msgs[-1]
-        if not isinstance(last, AIMessage):
-            return False
-        if hasattr(last, "tool_calls") and last.tool_calls:
-            return False
-        content = (last.content or "").strip()
-        return bool(content) and content.upper() != "DONE"
+    # ── Engineering-question turn: present the grounded questions verbatim ────
+    eng_text = _engineering_questions_text(messages)
+    if eng_text:
+        return {"messages": [AIMessage(content=eng_text)]}
 
-    # If response LLM is same as tool LLM, skip re-generation only if
-    # the last message is already a valid user-facing response
+    # ── Cost-presentation turn: deterministic table + LLM intro ───────────────
+    if _is_cost_presentation_turn(messages):
+        cost_breakdown, total_cost = await _fetch_cost_data(quotation_id)
+        table = render_cost_table_markdown(cost_breakdown, total_cost, lang)
+        intro = await _generate_cost_intro(response_client, messages, current_phase)
+        return {"messages": [AIMessage(content=f"{intro}\n\n{table}")]}
+
+    # ── Conversational / collection turn ──────────────────────────────────────
     if response_client is tool_client and _has_usable_response(messages):
-        return {"messages": messages}
+        return {"messages": []}
 
     try:
-        # Collect the last significant tool result so the response LLM can see
-        # the actual cost breakdown — ToolMessages are stripped by _build_clean_messages.
-        tool_context_lines = []
+        # Inject only the data-collection summary (extracted fields / missing
+        # info) — never cost figures — so the LLM asks the next question.
+        data_summary = None
         for msg in reversed(messages):
             if isinstance(msg, ToolMessage) and msg.content:
                 content = str(msg.content)
-                # Include cost calculation results and data collection summaries
-                if any(kw in content for kw in ("Cost Calculation Complete", "total", "Data Extracted", "Missing Info", "Follow-up Needed")):
-                    tool_context_lines.insert(0, content[:1500])
-                    if len(tool_context_lines) >= 2:
-                        break
+                if any(kw in content for kw in ("Data Extracted", "Missing Info", "Follow-up Needed")):
+                    data_summary = content[:800]
+                    break
 
-        system_prompt = RESPONSE_SYSTEM_PROMPT.format(
-            current_phase=current_phase,
-            quotation_id=quotation_id,
-        )
-        if tool_context_lines:
-            system_prompt += "\n\n=== LATEST TOOL RESULTS (use these to answer the user) ===\n" + "\n---\n".join(tool_context_lines)
+        system_prompt = COLLECTION_PROMPT.format(current_phase=current_phase)
+        if data_summary:
+            system_prompt += "\n\n=== DATA SO FAR ===\n" + data_summary
 
         clean_messages = _build_clean_messages(messages, system_prompt)
-
         response = await response_client.client.ainvoke(clean_messages)
 
-        # Cache the response for chat-type messages
+        # Cache only short, non-tool chat turns
         if messages:
             user_msg = None
             for m in reversed(messages):
@@ -328,47 +315,28 @@ async def response_node(
                     except Exception:
                         pass
 
-        # Replace or append the response
-        new_messages = list(messages)
-        if new_messages and isinstance(new_messages[-1], AIMessage):
-            last = new_messages[-1]
-            if not (hasattr(last, "tool_calls") and last.tool_calls):
-                new_messages[-1] = response
-            else:
-                new_messages.append(response)
-        else:
-            new_messages.append(response)
-
-        return {"messages": new_messages}
+        return {"messages": [response]}
 
     except Exception as e:
         logger.warning(f"Response LLM failed, generating fallback: {e}")
-        # Don't return "DONE" or empty — provide a safe fallback
-        fallback = AIMessage(content="I'm here to help with your construction quotation. How can I assist you?")
-        new_messages = list(messages)
-        if new_messages and isinstance(new_messages[-1], AIMessage):
-            new_messages[-1] = fallback
-        else:
-            new_messages.append(fallback)
-        return {"messages": new_messages}
+        fallback = AIMessage(content="أنا هنا أساعدك في مقايسة التشطيب. إيه اللي تحتاجه؟")
+        return {"messages": [fallback]}
 
 
 # ─── Graph Builder ─────────────────────────────────────────────────────
 
 def build_supervisor_graph(
     checkpointer: BaseCheckpointSaver,
-    supervisor: Optional[SupervisorAgent] = None,
     max_iterations: Optional[int] = None,
-    use_start_edge: bool = True,
 ):
     """
-    Build the optimized supervisor graph with intent routing and caching.
+    Build the deterministic workflow graph with intent routing and caching.
 
-    Nodes: cache_check -> intent_classifier -> supervisor <-> tools -> response -> END
+    Nodes: cache_check -> intent_classifier -> workflow -> response -> END
+
+    The old Mistral-based supervisor loop is replaced by workflow_node, which
+    uses pure Python logic to decide which tools to call.
     """
-    if supervisor is None:
-        supervisor = SupervisorAgent()
-
     builder = StateGraph(QuotationAgentState)
 
     # ── Bind closures ──
@@ -380,45 +348,25 @@ def build_supervisor_graph(
         from app.graph.intent_classifier import classify_intent
         return await classify_intent(state)
 
-    async def call_supervisor(state: QuotationAgentState):
-        return await supervisor_node(state, supervisor)
+    async def call_workflow(state: QuotationAgentState):
+        return await workflow_node(state)
 
     async def call_response(state: QuotationAgentState):
-        return await response_node(state, supervisor)
-
-    def should_continue_bound(state: QuotationAgentState):
-        return should_continue(state, max_iterations)
+        return await response_node(state)
 
     # ── Add Nodes ──
 
     builder.add_node("cache_check", call_cache_check)
     builder.add_node("intent_classifier", call_intent_classifier)
-    builder.add_node("supervisor", call_supervisor)
-    builder.add_node("tools", ToolNode(SUPERVISOR_TOOLS))
+    builder.add_node("workflow", call_workflow)
     builder.add_node("response", call_response)
 
     # ── Edges ──
 
-    # Entry: always start with cache check
-    if use_start_edge:
-        builder.add_edge(START, "cache_check")
-    else:
-        builder.set_entry_point("cache_check")
-
-    # cache_check and intent_classifier use Command API for routing
-    # (no explicit conditional edges needed — Command(goto=...) handles it)
-
-    # Supervisor: if tool_calls -> tools, else -> response
-    builder.add_conditional_edges(
-        "supervisor",
-        should_continue_bound,
-        {"continue": "tools", "end": "response"},
-    )
-
-    # Tools always loop back to supervisor
-    builder.add_edge("tools", "supervisor")
-
-    # Response is terminal
+    builder.add_edge(START, "cache_check")
+    # cache_check and intent_classifier use Command(goto=...) for routing
+    # workflow always proceeds to response (no loop)
+    builder.add_edge("workflow", "response")
     builder.add_edge("response", END)
 
     return builder.compile(checkpointer=checkpointer)

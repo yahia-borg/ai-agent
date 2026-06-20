@@ -1,12 +1,3 @@
-from app.agents.orchestrator import AgentOrchestrator
-from app.agents.langgraph_orchestrator import LangGraphOrchestrator
-from app.agents.data_collector import DataCollectorAgent
-from app.agents.cost_calculator import CostCalculatorAgent
-
-__all__ = [
-    "AgentOrchestrator",
-    "LangGraphOrchestrator",
-    "DataCollectorAgent",
-    "CostCalculatorAgent"
-]
-
+# Intentionally empty — import agents directly from their modules.
+# Eager imports here cause a circular dependency:
+#   agents/__init__ -> langgraph_orchestrator -> graph.builder -> agents.state -> agents/__init__

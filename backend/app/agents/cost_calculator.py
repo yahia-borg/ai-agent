@@ -781,6 +781,134 @@ class CostCalculatorAgent(BaseAgent):
 
         return breakdown
 
+    # ── Top-down market anchor ────────────────────────────────────────────────
+    # The seeded materials table holds all-in EGP/m² finishing rates as rows named
+    # "<Tier> Finishing - <Group>" (e.g. "Luxury Finishing - Commercial Buildings"
+    # = 40,000). These are validated against real-market benchmarks; the bottom-up
+    # BOQ alone under-estimates ~10x because it only itemizes a handful of lines.
+    # We use the matching anchor as the authoritative total and add a single
+    # balancing allowance line so the granular BOQ sums to the market figure.
+
+    # System finish levels → market quality tier.
+    _ANCHOR_TIER_BY_FINISH = {
+        "turnkey": "Luxury",
+        "luxury_finished": "Luxury",
+        "luxury": "Luxury",
+        "super_deluxe": "Super Deluxe",
+        "super_lux": "Super Deluxe",
+        "super_luxury": "Super Deluxe",
+        "fully_finished": "Standard",
+        "semi_finished": "Economic",
+    }
+
+    @staticmethod
+    def _anchor_group_for_project(project_type: str) -> str:
+        pt = (project_type or "residential").lower()
+        if any(k in pt for k in ["commercial", "office", "bank", "retail", "shop", "mall", "تجاري"]):
+            return "Commercial Buildings"
+        if "villa" in pt or "فيلا" in pt:
+            return "Residential Villas"
+        return "Residential Apartments"
+
+    def _get_finishing_anchor_rate(self, extracted_data: Dict[str, Any]):
+        """Return (rate_egp_per_sqm, anchor_name) for the (tier, group) combination,
+        read from the seeded aggregate rows. None when no matching row exists."""
+        target = (extracted_data.get("target_finish_level") or "").strip().lower()
+        tier = self._ANCHOR_TIER_BY_FINISH.get(target, "Standard")
+        group = self._anchor_group_for_project(extracted_data.get("project_type"))
+        anchor_name = f"{tier} Finishing - {group}"
+        db = SessionLocal()
+        try:
+            row = (
+                db.query(Material)
+                .filter(Material.name["en"].astext == anchor_name)
+                .first()
+            )
+            if row and row.price is not None:
+                return float(row.price), anchor_name
+            logger.warning(f"No top-down anchor row found for '{anchor_name}'")
+            return None
+        except Exception as e:
+            logger.warning(f"Anchor rate lookup failed for '{anchor_name}': {e}")
+            return None
+        finally:
+            db.close()
+
+    # Base split of the turnkey finishing allowance into named sub-systems
+    # (weights are normalised, so they need not sum to 1.0). Conditional lines are
+    # added below when the engineering Q&A scope calls for them.
+    _ALLOWANCE_BASE = [
+        ("electrical", "Electrical & low-current works", "أعمال الكهرباء والتيار الخفيف", 0.20),
+        ("plumbing", "Plumbing & sanitary works", "أعمال السباكة والصرف الصحي", 0.10),
+        ("hvac", "HVAC / air-conditioning", "أعمال التكييف والتهوية", 0.16),
+        ("ceiling", "False ceilings (gypsum / acoustic)", "الأسقف المعلقة (جبس بورد/أكوستيك)", 0.12),
+        ("flooring", "Flooring system — supply & install", "نظام الأرضيات — توريد وتركيب", 0.16),
+        ("partitions", "Partitions, doors & joinery", "القواطيع والأبواب وأعمال النجارة", 0.10),
+        ("painting", "Painting & wall finishes", "الدهانات وتشطيبات الحوائط", 0.06),
+        ("fire_signage", "Fire safety, signage & sundries", "أنظمة الحريق واللافتات ومتفرقات", 0.06),
+    ]
+
+    def _build_allowance_lines(self, remainder, size_sqm, extracted_data, anchor_name):
+        """Split the balancing allowance into named finishing sub-systems.
+
+        Uses the LLM-synthesised BOQ breakdown from the engineering Q&A
+        (``extracted_data["engineering"]["boq_scope"]`` — produced by
+        ``engineering_node.synthesize_boq_scope``, which understands Arabic/English/
+        Franco-Arabic natively). The LLM supplies the line NAMES and RELATIVE
+        weights; we normalise those weights against the market-anchored allowance,
+        so the model is never trusted with absolute money. Falls back to a generic
+        finishing split when no scope was produced.
+
+        Returns ``(line_items, scope_summary)`` with totals summing exactly to
+        ``remainder``."""
+        eng = extracted_data.get("engineering") or {}
+        boq_scope = eng.get("boq_scope") or {}
+        scope_items = boq_scope.get("line_items") or []
+
+        # (name_en, name_ar, weight) tuples — from the LLM scope, else the fallback.
+        if scope_items:
+            components = [
+                (str(it.get("name_en") or it.get("name_ar") or "Finishing works"),
+                 str(it.get("name_ar") or it.get("name_en") or "أعمال تشطيب"),
+                 max(0.0, float(it.get("weight") or 0.0)))
+                for it in scope_items
+            ]
+            scope_summary = {
+                "en": boq_scope.get("summary_en") or "",
+                "ar": boq_scope.get("summary_ar") or "",
+            }
+            if not (scope_summary["en"] or scope_summary["ar"]):
+                scope_summary = None
+        else:
+            components = [(en, ar, w) for (_k, en, ar, w) in self._ALLOWANCE_BASE]
+            scope_summary = None
+
+        total_w = sum(w for *_, w in components)
+        if total_w <= 0:  # all-zero / single-item weights → distribute evenly
+            components = [(en, ar, 1.0) for (en, ar, _w) in components]
+            total_w = float(len(components)) or 1.0
+
+        lines = []
+        allocated = 0.0
+        for idx, (en, ar, w) in enumerate(components):
+            # Put any rounding residual on the last line so the split sums exactly.
+            if idx == len(components) - 1:
+                amount = round(remainder - allocated, 2)
+            else:
+                amount = round(remainder * w / total_w, 2)
+                allocated += amount
+            name = f"{en}\n/ {ar}" if ar and ar != en else en
+            lines.append({
+                "name": name,
+                "description": f"Finishing allowance line ({anchor_name})",
+                "quantity": round(size_sqm, 2),
+                "unit": "Square Meter",
+                "unit_price": round(amount / size_sqm, 2) if size_sqm else 0.0,
+                "total": amount,
+            })
+
+        return lines, scope_summary
+
     async def execute(self, quotation: Quotation, context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Calculate construction costs using Qdrant knowledge + database pricing.
@@ -792,6 +920,7 @@ class CostCalculatorAgent(BaseAgent):
         """
 
         extracted_data = context.get("extracted_data", {})
+        self._engineering_scope = None  # set when the anchor allowance is split by scope
 
         # Use bilingual mode for professional exports as requested
         language = "bilingual"
@@ -1022,6 +1151,52 @@ class CostCalculatorAgent(BaseAgent):
         markup_pct = await config.get_config("markup_percentage") or 0.10
         overhead_split = await config.get_config("markup_overhead_split") or 0.5
 
+        # Step 5a: Top-down market anchor. Use the seeded all-in EGP/m² rate for the
+        # (tier, building-group) as the authoritative total; the itemized BOQ keeps
+        # its REAL unit prices and a single labeled allowance line balances up to the
+        # market figure. Without this, the thin bottom-up BOQ under-quotes ~10x.
+        anchor = self._get_finishing_anchor_rate(extracted_data)
+        if anchor and size_sqm and size_sqm > 0:
+            anchor_rate, anchor_name = anchor
+            anchor_total = anchor_rate * size_sqm
+            # All-in market rate is inclusive of contingency + markup; derive the
+            # pre-overhead subtotal that yields anchor_total after both are applied.
+            target_subtotal = anchor_total / (1.0 + contingency_pct + markup_pct)
+            bottom_up = total_material_cost + total_labor_cost
+            remainder = target_subtotal - bottom_up
+            if remainder > 0:
+                # Break the balancing allowance into named finishing sub-systems,
+                # driven by the engineering Q&A scope (so the BOQ reflects this
+                # specific project). The weighted lines always sum to `remainder`.
+                allowance_lines, scope_summary = self._build_allowance_lines(
+                    remainder, size_sqm, extracted_data, anchor_name
+                )
+                material_items.extend(allowance_lines)
+                total_material_cost += remainder
+                if scope_summary:
+                    self._engineering_scope = scope_summary  # rendered in cost_breakdown below
+                logger.info(
+                    f"Top-down anchor '{anchor_name}': {anchor_rate:,.0f} EGP/m² × {size_sqm:g} "
+                    f"= {anchor_total:,.0f}; bottom-up {bottom_up:,.0f}; allowance {remainder:,.0f} "
+                    f"split into {len(allowance_lines)} named lines"
+                )
+            else:
+                # Bottom-up already meets/exceeds the market rate — scale down both
+                # itemized subtotals proportionally so the total still equals anchor.
+                scale = target_subtotal / bottom_up if bottom_up > 0 else 1.0
+                for it in material_items:
+                    it["unit_price"] = round((it.get("unit_price") or 0) * scale, 2)
+                    it["total"] = round((it.get("total") or 0) * scale, 2)
+                for tr in labor_trades:
+                    tr["unit_price"] = round((tr.get("unit_price") or 0) * scale, 2)
+                    tr["total"] = round((tr.get("total") or 0) * scale, 2)
+                total_material_cost *= scale
+                total_labor_cost *= scale
+                logger.info(
+                    f"Top-down anchor '{anchor_name}': bottom-up {bottom_up:,.0f} exceeded "
+                    f"target {target_subtotal:,.0f}; scaled by {scale:.3f}"
+                )
+
         subtotal = total_material_cost + total_labor_cost
         contingency = subtotal * contingency_pct
         markup = subtotal * markup_pct
@@ -1050,7 +1225,9 @@ class CostCalculatorAgent(BaseAgent):
                     "overhead": round(markup * overhead_split, 2),
                     "profit": round(markup * (1 - overhead_split), 2)
                 }
-            }
+            },
+            # Engineering-Q&A-derived scope summary (None when no answers captured).
+            "scope": getattr(self, "_engineering_scope", None),
         }
 
         return {

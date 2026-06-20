@@ -2,6 +2,7 @@
 
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Bot, User, Image as ImageIcon, FileText } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { detectLanguage } from '@/utils/language';
@@ -90,6 +91,7 @@ export default function MessageBubble({ message, index }: MessageBubbleProps) {
           dir={isRTL ? 'rtl' : 'ltr'}
         >
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               a: ({ node, ...props }) => {
                 const href = props.href || '';

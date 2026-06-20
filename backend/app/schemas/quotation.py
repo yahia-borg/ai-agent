@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Dict, Any
 from datetime import datetime
 from app.models.quotation import QuotationStatus, ProjectType
@@ -13,6 +13,8 @@ class QuotationCreate(BaseModel):
 
 
 class QuotationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     project_description: str
     location: Optional[str]
@@ -22,20 +24,16 @@ class QuotationResponse(BaseModel):
     status: QuotationStatus
     created_at: datetime
     updated_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
 
 
 class QuotationDataResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     quotation_id: str
     extracted_data: Optional[Dict[str, Any]]
     confidence_score: Optional[float]
     cost_breakdown: Optional[Dict[str, Any]]
     total_cost: Optional[float]
-    
-    class Config:
-        from_attributes = True
 
 
 class QuotationStatusResponse(BaseModel):

@@ -2,33 +2,27 @@ from typing import Dict, Any, Union
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage
 import logging
 
 from app.agents.state import QuotationAgentState
-from app.agents.supervisor import SupervisorAgent
 from app.models.quotation import Quotation, QuotationStatus
 from app.core.db_context import db_session_context, get_or_create_async_db_session
 from app.core.config import settings
 from app.graph.builder import build_supervisor_graph
+from app.graph.checkpointer import get_checkpointer
 
 logger = logging.getLogger(__name__)
 
 class LangGraphOrchestrator:
     """
-    Supervisor-based Orchestrator.
-    Uses a ReAct loop (Supervisor <-> Tools) to process quotations dynamically.
+    Deterministic Workflow Orchestrator.
+    Uses the workflow_node (pure Python routing) to process quotations.
     """
-    
+
     def __init__(self):
-        self.checkpointer = MemorySaver()
-        self.supervisor = SupervisorAgent()
         self.graph = build_supervisor_graph(
-            checkpointer=self.checkpointer,
-            supervisor=self.supervisor,
-            max_iterations=settings.MAX_ITERATIONS,
-            use_start_edge=True
+            checkpointer=get_checkpointer(),
         )
 
     async def process_quotation(self, quotation_id: str, db: Union[Session, AsyncSession]) -> Dict[str, Any]:

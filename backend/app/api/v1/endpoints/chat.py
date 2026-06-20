@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
 from fastapi.responses import StreamingResponse
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from typing import List, Dict, Any, Optional, Union
 from sqlalchemy.orm import Session
 import json
@@ -10,7 +10,6 @@ import uuid
 import logging
 
 from app.core.database import get_db
-from app.agents.conversational_agent import ConversationalAgent
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +58,7 @@ class ChatRequest(BaseModel):
                     })
         return normalized
     
-    class Config:
-        # Allow extra fields but ignore them during validation
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 class ChatResponse(BaseModel):
@@ -120,10 +117,10 @@ async def chat_endpoint(
         
         if not message:
             raise HTTPException(status_code=400, detail="Message is required")
-        
-        # Initialize agent (LangGraph's MemorySaver handles conversation persistence)
-        agent = ConversationalAgent()
-        
+
+        # Read singleton agent — built once at startup in lifespan (main.py)
+        agent = request.app.state.agent
+
         # Get or create session_id (separate from quotation_id)
         if not session_id:
             session_id = f"session-{uuid.uuid4().hex[:12]}"
@@ -166,16 +163,17 @@ async def chat_stream_options():
 
 @router.post("/stream")
 async def chat_stream_endpoint(
-    request: ChatRequest,
+    request: Request,
+    chat_request: ChatRequest,
     db: Session = Depends(get_db)
 ):
     """
     Server-Sent Events (SSE) streaming endpoint for real-time agent responses.
     """
-    logger.info(f"Stream endpoint called with message length: {len(request.message) if request.message else 0}, history length: {len(request.history) if request.history else 0}")
-    
+    logger.info(f"Stream endpoint called with message length: {len(chat_request.message) if chat_request.message else 0}, history length: {len(chat_request.history) if chat_request.history else 0}")
+
     # Validate request
-    if not request.message or not request.message.strip():
+    if not chat_request.message or not chat_request.message.strip():
         async def error_generator():
             error_chunk = {
                 "type": "error",
@@ -187,24 +185,20 @@ async def chat_stream_endpoint(
             media_type="text/event-stream",
             status_code=400
         )
-    
+
     # Validate history format
-    if request.history is not None:
-        if not isinstance(request.history, list):
-            logger.warning(f"Invalid history format: expected list, got {type(request.history)}")
-            request.history = []
+    if chat_request.history is not None:
+        if not isinstance(chat_request.history, list):
+            logger.warning(f"Invalid history format: expected list, got {type(chat_request.history)}")
+            chat_request.history = []
         else:
-            # Validate each history item has required fields
             validated_history = []
-            for idx, item in enumerate(request.history):
+            for idx, item in enumerate(chat_request.history):
                 if isinstance(item, dict):
-                    # Ensure only role and content are present (strip any extra fields)
                     if "role" in item and "content" in item:
-                        # Validate role is valid
                         if item["role"] not in ["user", "assistant"]:
                             logger.warning(f"Invalid role in history item {idx}: {item.get('role')}")
                             continue
-                        # Ensure content is a string
                         if not isinstance(item["content"], str):
                             logger.warning(f"Invalid content type in history item {idx}: {type(item.get('content'))}")
                             item["content"] = str(item["content"])
@@ -216,25 +210,25 @@ async def chat_stream_endpoint(
                         logger.warning(f"Invalid history item format at index {idx}: missing role or content, item: {item}")
                 else:
                     logger.warning(f"Invalid history item type at index {idx}: expected dict, got {type(item)}")
-            request.history = validated_history
+            chat_request.history = validated_history
             logger.info(f"Validated history: {len(validated_history)} items")
-    
+
+    # Read singleton agent — built once at startup in lifespan (main.py)
+    agent = request.app.state.agent
+
     async def event_generator():
         try:
-            # LangGraph's MemorySaver handles conversation persistence automatically
-            agent = ConversationalAgent()
-            
             # Get or create session_id (separate from quotation_id)
-            session_id = request.session_id or f"session-{uuid.uuid4().hex[:12]}"
-            
-            logger.info(f"Processing streaming message for session: {session_id}, history length: {len(request.history or [])}")
-            
+            session_id = chat_request.session_id or f"session-{uuid.uuid4().hex[:12]}"
+
+            logger.info(f"Processing streaming message for session: {session_id}, history length: {len(chat_request.history or [])}")
+
             # Process message with streaming
             async for chunk in agent.process_message_stream(
-                message=request.message,
-                history=request.history or [],
+                message=chat_request.message,
+                history=chat_request.history or [],
                 session_id=session_id,
-                quotation_id=request.quotation_id,
+                quotation_id=chat_request.quotation_id,
                 db=db
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"

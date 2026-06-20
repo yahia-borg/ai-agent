@@ -38,7 +38,13 @@ async def lifespan(app: FastAPI):
     
     # Initialize LangSmith tracing (sets environment variables)
     get_langsmith_callbacks()
-    
+
+    # Initialize ConversationalAgent singleton — builds the LangGraph graph once.
+    # All request handlers read from app.state.agent instead of instantiating per-request.
+    from app.agents.conversational_agent import ConversationalAgent
+    app.state.agent = ConversationalAgent()
+    logger.info("ConversationalAgent initialized (singleton)")
+
     yield
     # Clean up resources if needed (e.g. close DB connections)
 

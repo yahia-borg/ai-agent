@@ -47,10 +47,10 @@ def get_multilingual_prompt(language: str) -> dict:
 نوع المشروع: {project_type}
 الجدول الزمني: {timeline}
 
-رجع كائن JSON بالهيكل ده، والحقول النصية زي key_requirements و missing_information و follow_up_questions لازم تكون بالعامية المصرية صرف:
+رجع كائن JSON بالهيكل ده بالظبط. مهم جدا: متستخدمش أي تنسيق Markdown (بدون ** أو __ أو أي علامات) في أسماء الحقول أو القيم. الـ keys لازم تكون بالإنجليزي بالظبط زي ما هي في المثال.
 
 {{
-    "project_type": "تجاري|سكني|بناء_جديد|null",
+    "project_type": "commercial|residential|new_construction|unknown",
     "size_sqm": <رقم أو null>,
     "current_finish_level": "على_الطوب|على_المحارة|نص_تشطيب|متشطب|تشطيب_قديم",
     "target_finish_level": "نص_تشطيب|تشطيب_كامل|تشطيب_فاخر|عالمفتاح|سوبر_لوكس",
@@ -69,10 +69,10 @@ def get_multilingual_prompt(language: str) -> dict:
 ملاحظة: المساحة بالمتر المربع (sqm).
 الموقع لو موجود حطه في key_requirements.
 كن دقيق في الثقة، وأضف أسئلة متابعة بس لو الثقة أقل من 0.7.
-**مهم: لو المستخدم ما ذكرش تفاصيل الغرف (عدد الأوض، الحمامات، المطابخ)، حط "تفاصيل الغرف" في missing_information واسأله في follow_up_questions.**
+لو المستخدم ما ذكرش تفاصيل الغرف (عدد الأوض، الحمامات، المطابخ)، حط "تفاصيل الغرف" في missing_information واسأله في follow_up_questions.
 لو سكني: اسأل عن غرف النوم، الحمامات، المطبخ، الريسبشن.
 لو تجاري: اسأل عن المكاتب، الاستقبال، غرف الاجتماعات، المخازن.
-**الرد كله بالعامية المصرية إلا الـ JSON keys والقيم اللي هي options ثابتة.**"""
+الرد في الـ list values بالعامية المصرية. الـ JSON keys بالإنجليزي بدون أي تنسيق."""
         },
         "en": {
             "system": """You are a construction project data extraction assistant.
@@ -88,9 +88,9 @@ Location: {location}
 Project Type: {project_type}
 Timeline: {timeline}
 
-Return a JSON object with the following structure:
+Return a JSON object with EXACTLY the following structure. IMPORTANT: Do NOT use any Markdown formatting (no ** or __) in field names or values. Use plain text only.
 {{
-    "project_type": "commercial (office, shop, cafe, etc.)|residential (apartment, villa, etc.)|new_construction|null",
+    "project_type": "commercial|residential|new_construction|unknown",
     "size_sqm": <number or null>,
     "current_finish_level": "core_shell|on_plaster|semi_finished|finished|old_finish",
     "target_finish_level": "semi_finished|fully_finished|luxury_finished|turnkey|super_lux",
@@ -99,18 +99,18 @@ Return a JSON object with the following structure:
     ],
     "num_bathrooms": <number or null>,
     "num_kitchens": <number or null>,
-    "key_requirements": ["requirement1", "requirement2", ...],
+    "key_requirements": ["requirement1", "requirement2"],
     "confidence_score": <0.0 to 1.0>,
     "missing_information": ["what's missing"],
     "follow_up_questions": ["question1", "question2"],
     "detected_language": "ar|en|mixed"
 }}
 
-Note: Extract size in sqm.
+Note: Extract size in sqm. If project type is unclear, use "unknown".
 Location is optional - if mentioned, add it to key_requirements.
 Prices are in Egyptian Pounds (EGP).
 Be accurate and conservative with confidence scores. Only include follow-up questions if confidence < 0.7.
-IMPORTANT: If the user did not mention room details (number of bedrooms, bathrooms, kitchens), add "Room breakdown" to missing_information and ask about it in follow_up_questions.
+If the user did not mention room details (number of bedrooms, bathrooms, kitchens), add "Room breakdown" to missing_information and ask about it in follow_up_questions.
 For residential: ask about bedrooms, bathrooms, kitchen, reception/living areas.
 For commercial: ask about offices, reception, meeting rooms, storage areas."""
         },
@@ -128,9 +128,9 @@ Location: {location}
 Project Type: {project_type}
 Timeline: {timeline}
 
-Return a JSON object with the following structure:
+Return a JSON object with EXACTLY the following structure. IMPORTANT: Do NOT use any Markdown formatting (no ** or __) in field names or values. Use plain text only.
 {{
-    "project_type": "commercial (office, shop, cafe, etc.)|residential (apartment, villa, etc.)|new_construction|null",
+    "project_type": "commercial|residential|new_construction|unknown",
     "size_sqm": <number or null>,
     "current_finish_level": "core_shell|on_plaster|semi_finished|finished|old_finish",
     "target_finish_level": "semi_finished|fully_finished|luxury_finished|turnkey|super_lux",
@@ -139,18 +139,18 @@ Return a JSON object with the following structure:
     ],
     "num_bathrooms": <number or null>,
     "num_kitchens": <number or null>,
-    "key_requirements": ["requirement1", "requirement2", ...],
+    "key_requirements": ["requirement1", "requirement2"],
     "confidence_score": <0.0 to 1.0>,
     "missing_information": ["what's missing"],
     "follow_up_questions": ["question1", "question2"],
     "detected_language": "ar|en|mixed"
 }}
 
-Note: Extract size in sqm.
+Note: Extract size in sqm. If project type is unclear, use "unknown".
 Location is optional - if mentioned, add it to key_requirements.
 Prices are in Egyptian Pounds (EGP).
 Be accurate and conservative with confidence scores. Only include follow-up questions if confidence < 0.7.
-IMPORTANT: If the user did not mention room details (number of bedrooms, bathrooms, kitchens), add "Room breakdown" to missing_information and ask about it in follow_up_questions.
+If the user did not mention room details (number of bedrooms, bathrooms, kitchens), add "Room breakdown" to missing_information and ask about it in follow_up_questions.
 For residential: ask about bedrooms, bathrooms, kitchen, reception/living areas.
 For commercial: ask about offices, reception, meeting rooms, storage areas."""
         }

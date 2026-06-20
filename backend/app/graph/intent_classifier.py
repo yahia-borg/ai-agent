@@ -22,6 +22,26 @@ class IntentClassification(BaseModel):
     language: str = Field(description="Detected language: ar or en")
 
 
+# Module-level singleton — built once on first classify call, reused thereafter.
+# Lazy init keeps import-time side-effects out of module load (matches codebase convention).
+_classifier = None
+
+
+def _get_classifier():
+    """Return (and lazily initialize) the structured-output LLM chain for intent classification."""
+    global _classifier
+    if _classifier is None:
+        from app.agents.llm_client import LLMClient
+        from app.core.config import settings
+        _client = LLMClient(
+            base_url_override=settings.RESPONSE_LLM_BASE_URL or None,
+            model_override=settings.RESPONSE_LLM_MODEL or None,
+            max_tokens_override=256,
+        )
+        _classifier = _client.client.with_structured_output(IntentClassification)
+    return _classifier
+
+
 CLASSIFIER_PROMPT = """Classify this user message for a construction quotation system.
 
 Intents:
@@ -76,8 +96,8 @@ def _route(intent: str, language: Optional[str] = None) -> Command:
 
     if intent == "chat":
         return Command(goto="response", update=updates if updates else None)
-    else:  # quotation, export, search -> all need supervisor
-        return Command(goto="supervisor", update=updates if updates else None)
+    else:  # quotation, export, search -> deterministic workflow node
+        return Command(goto="workflow", update=updates if updates else None)
 
 
 async def classify_intent(state: QuotationAgentState) -> Command:
@@ -87,11 +107,11 @@ async def classify_intent(state: QuotationAgentState) -> Command:
     """
     messages = state.get("messages", [])
     if not messages:
-        return Command(goto="supervisor")
+        return Command(goto="workflow")
 
     last_msg = messages[-1].content.strip() if hasattr(messages[-1], "content") else ""
     if not last_msg:
-        return Command(goto="supervisor")
+        return Command(goto="workflow")
 
     cache = get_response_cache()
 
@@ -117,7 +137,7 @@ async def classify_intent(state: QuotationAgentState) -> Command:
     if has_active_quotation:
         if _is_obvious_chat(last_msg):
             return Command(goto="response")
-        return Command(goto="supervisor")
+        return Command(goto="workflow")
 
     # 3. Fast-path: if message contains obvious construction keywords, skip LLM
     if _is_obvious_quotation(last_msg):
@@ -130,15 +150,7 @@ async def classify_intent(state: QuotationAgentState) -> Command:
 
     # 4. LLM classification via 8061 structured output
     try:
-        from app.agents.llm_client import LLMClient
-        from app.core.config import settings
-        # Use a dedicated small-max_tokens client for classification (~50 token output)
-        classifier_client = LLMClient(
-            base_url_override=settings.RESPONSE_LLM_BASE_URL or None,
-            model_override=settings.RESPONSE_LLM_MODEL or None,
-            max_tokens_override=256,
-        )
-        classifier = classifier_client.client.with_structured_output(IntentClassification)
+        classifier = _get_classifier()
         result = await classifier.ainvoke([
             SystemMessage(content=CLASSIFIER_PROMPT),
             HumanMessage(content=last_msg),
@@ -159,5 +171,5 @@ async def classify_intent(state: QuotationAgentState) -> Command:
         return _route(result.intent, result.language)
 
     except Exception as e:
-        logger.warning(f"Intent classification failed, defaulting to supervisor: {e}")
-        return Command(goto="supervisor")
+        logger.warning(f"Intent classification failed, defaulting to workflow: {e}")
+        return Command(goto="workflow")

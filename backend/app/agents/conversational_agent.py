@@ -2,31 +2,22 @@ from typing import List, Dict, Any, Optional, AsyncGenerator
 from sqlalchemy.orm import Session
 from typing_extensions import TypedDict, Annotated
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langgraph.checkpoint.memory import MemorySaver
 import logging
 
-from app.agents.supervisor import SupervisorAgent
 from app.agents.state import QuotationAgentState
 from app.core.config import settings
 from app.core.structured_logging import log_state_update, log_tool_execution
 from app.graph.builder import build_supervisor_graph
+from app.graph.checkpointer import get_checkpointer
 
 logger = logging.getLogger(__name__)
 
 class ConversationalAgent:
-    """Conversational agent that uses the Supervisor architecture"""
-    
-    # Shared checkpointer for all instances to persist state across requests
-    # LangGraph's MemorySaver handles conversation persistence automatically
-    _checkpointer = MemorySaver()
-    
+    """Conversational agent that uses the deterministic workflow graph."""
+
     def __init__(self):
-        self.supervisor = SupervisorAgent()
         self.graph = build_supervisor_graph(
-            checkpointer=self._checkpointer,
-            supervisor=self.supervisor,
-            max_iterations=settings.MAX_ITERATIONS,
-            use_start_edge=False  # ConversationalAgent uses set_entry_point
+            checkpointer=get_checkpointer(),
         )
 
     async def process_message_stream(
@@ -59,28 +50,23 @@ class ConversationalAgent:
                 quotation_id = session.quotation_id
                 logger.info(f"Using quotation {quotation_id} from session {session_id}")
 
-            # Convert history
-            langchain_messages = []
-            for msg in history:
-                role = msg.get("role", "")
-                content = msg.get("content", "")
-                if role == "user":
-                    langchain_messages.append(HumanMessage(content=content))
-                elif role == "assistant" and content.strip():
-                    # Skip empty assistant messages (invalid for OpenAI API)
-                    # Assistant messages must have either content OR tool_calls
-                    langchain_messages.append(AIMessage(content=content))
-
-            langchain_messages.append(HumanMessage(content=message))
+            # Only pass the new message — MemorySaver provides prior history via thread_id.
+            # Passing full history here would cause add_messages reducer to duplicate
+            # every message on each turn (history + checkpoint = 2× every turn).
+            langchain_messages = [HumanMessage(content=message)]
 
             # Initial state (following QuotationAgentState)
             # Note: quotation_id might be None initially - tools will create it
+            # Only include fields that should be RESET each turn.
+            # Fields NOT listed here (especially current_phase) are preserved from
+            # the MemorySaver checkpoint — if we include current_phase here it would
+            # overwrite any "COMPLETE" / "QUOTING" value the previous turn stored,
+            # causing the supervisor to restart from GATHERING every single turn.
             initial_state: QuotationAgentState = {
                 "messages": langchain_messages,
                 "quotation_id": quotation_id or session_id,
                 "session_id": session_id,
                 "status": "PROCESSING",
-                "current_phase": "GATHERING",
                 "finish_levels": {},
                 "processing_context": {
                     "extracted_data": {},
@@ -122,10 +108,24 @@ class ConversationalAgent:
             # No need to manually save - it's stored in checkpoints via thread_id (session_id)
 
             # Get final quotation_id from session (might have been created during conversation)
+            # The workflow links session.quotation_id on a separate (async) connection,
+            # so this sync session's identity map still holds the stale row it created at
+            # the start of the turn. Expire it to force a fresh read of the committed link;
+            # otherwise the FIRST turn that creates a quotation reports quotation_id=None.
+            db.expire_all()
             session = SessionService.get_or_create_session(db, session_id)
             final_quotation_id = session.quotation_id
 
-            yield {"type": "done", "quotation_id": final_quotation_id, "session_id": session_id}
+            # Check if quotation is fully completed so the frontend knows whether
+            # to show download buttons (status == "completed" means cost_breakdown exists)
+            quotation_status = None
+            if final_quotation_id:
+                from app.models.quotation import Quotation
+                q = db.query(Quotation).filter(Quotation.id == final_quotation_id).first()
+                if q:
+                    quotation_status = q.status.value if hasattr(q.status, "value") else str(q.status)
+
+            yield {"type": "done", "quotation_id": final_quotation_id, "session_id": session_id, "quotation_status": quotation_status}
 
         finally:
             if should_close_db:
@@ -151,14 +151,11 @@ class ConversationalAgent:
         elif "intent_classifier" in state_update:
             # Command-based node: routes internally, no user-facing output
             logger.debug("Intent classifier completed routing")
-        elif "supervisor" in state_update:
-            async for chunk in self._stream_supervisor_update(state_update["supervisor"], stream_state):
-                yield chunk
+        elif "workflow" in state_update:
+            # workflow_node returns ToolMessages — no user-facing content to stream
+            logger.debug("Workflow node completed")
         elif "response" in state_update:
             async for chunk in self._stream_supervisor_update(state_update["response"], stream_state):
-                yield chunk
-        elif "tools" in state_update:
-            async for chunk in self._stream_tool_update(state_update["tools"], stream_state):
                 yield chunk
         else:
             logger.debug(f"Unknown stream update type: {list(state_update.keys())}")

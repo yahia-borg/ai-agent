@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # Build stage
 FROM node:18-alpine AS builder
 
@@ -8,8 +9,9 @@ COPY package.json ./
 # Only copy package-lock.json if it exists
 COPY package-lock.json* ./
 
-# Install dependencies
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# Cache mount keeps ~/.npm across rebuilds — only new/changed packages download.
+RUN --mount=type=cache,target=/root/.npm \
+    if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # Copy application code
 COPY . .

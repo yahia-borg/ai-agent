@@ -1,4 +1,4 @@
-from app.agent.tools import search_materials, search_standards
+from app.agents.tools import search_materials, search_standards
 import json
 
 def test_tools():

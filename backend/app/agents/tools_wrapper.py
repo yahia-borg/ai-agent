@@ -86,7 +86,7 @@ async def collect_project_data(quotation_id: str, additional_info: Optional[str]
     
     INPUT FORMAT:
     - quotation_id: The quotation ID from current context (use exact ID, never make up new ones)
-    - additional_info: SHORT summary (max {max_info_len} chars) of ONLY new information from user's latest message
+    - additional_info: SHORT summary (max 500 chars) of ONLY new information from user's latest message
       Examples: "150 sqm apartment", "fully finished", "Cairo location"
     
     OUTPUT FORMAT:
@@ -123,9 +123,10 @@ async def collect_project_data(quotation_id: str, additional_info: Optional[str]
 
         # Initialize agent
         agent = DataCollectorAgent()
-        
-        # Execute agent
-        context = {} # Context can be expanded if needed
+
+        # Forward additional_info so the LLM sees the latest user message,
+        # not only the original project_description stored in the DB.
+        context = {"additional_info": additional_info} if additional_info else {}
         result = await agent.execute(quotation, context)
         
         # Persist results to DB (Agent often does this, but we ensure QuotationData is updated)
@@ -146,14 +147,29 @@ async def collect_project_data(quotation_id: str, additional_info: Optional[str]
         q_data = q_data_result.scalar_one_or_none()
         if not q_data:
             q_data = QuotationData(
-                quotation_id=quotation.id,  # Use actual UUID from database
-                extracted_data=extracted_data,  # Contains current_finish_level and target_finish_level
+                quotation_id=quotation.id,
+                extracted_data=extracted_data,
                 confidence_score=confidence
             )
             db.add(q_data)
         else:
-            q_data.extracted_data = extracted_data
-            q_data.confidence_score = confidence
+            # Merge: preserve existing non-null values when the new extraction
+            # returns None for a field (e.g. user says "لا" and Mistral can't
+            # extract finish level from a single-word reply).
+            # New non-null values always win (user may be correcting previous info).
+            _null_like = (None, "", "unknown", "Unknown", "null", "none", "None")
+            existing = q_data.extracted_data or {}
+            merged = dict(existing)
+            for key, value in extracted_data.items():
+                if value not in _null_like:
+                    merged[key] = value
+                elif key not in existing or existing[key] in _null_like:
+                    # Normalise any 'unknown'-style sentinel to None so the field
+                    # stays genuinely empty and the required-field gate keeps asking
+                    # for it (a literal "unknown" string is truthy and would pass).
+                    merged[key] = None
+            q_data.extracted_data = merged
+            q_data.confidence_score = max(confidence, q_data.confidence_score or 0.0)
         
         # Update quotation status — never downgrade from completed/cost_calculation
         if quotation.status not in (QuotationStatus.COMPLETED, QuotationStatus.COST_CALCULATION):
@@ -174,22 +190,39 @@ async def collect_project_data(quotation_id: str, additional_info: Optional[str]
         num_bathrooms = extracted_data.get("num_bathrooms")
         num_kitchens = extracted_data.get("num_kitchens")
 
-        # Correctly get missing info from extracted_data
-        missing = extracted_data.get("missing_information", [])
+        # Treat 'unknown'-style sentinels as absent (mirrors workflow_node._is_present
+        # and the calculate_costs guard) so the summary keeps asking for real values.
+        _null_like = ("", "unknown", "null", "none", "not specified", "n/a")
 
-        # Mandatory field validation for the summary
-        if not size:
-            if "Size (sqm)" not in missing:
-                missing.append("Size (sqm)")
-        if not p_type or p_type == "Unknown":
-            if "Project Type" not in missing:
-                missing.append("Project Type")
+        def _present(v) -> bool:
+            if not v:
+                return False
+            if isinstance(v, str) and v.strip().lower() in _null_like:
+                return False
+            return True
 
-        # Room breakdown validation
+        # Build the missing list with the four required fields FIRST and in a
+        # sensible question order, so the response LLM (which asks for the first
+        # "Missing Info" item) gathers core data before optional layout details.
+        missing = []
+        if not _present(size):
+            missing.append("Size (sqm)")
+        if not _present(p_type):
+            missing.append("Project Type")
+        if not _present(extracted_data.get("current_finish_level")):
+            missing.append("Current finish level (e.g. core/shell, on plaster, semi-finished)")
+        if not _present(extracted_data.get("target_finish_level")):
+            missing.append("Target finish level (e.g. fully finished, luxury/turnkey)")
+
+        # Room breakdown is optional/improving info — ask after the required fields.
         has_rooms = bool(rooms) or (num_bathrooms is not None and num_kitchens is not None)
         if not has_rooms:
-            if "Room breakdown" not in missing:
-                missing.append("Room breakdown")
+            missing.append("Room breakdown")
+
+        # Append any extra hints the LLM flagged, without duplicating the above.
+        for extra in (extracted_data.get("missing_information") or []):
+            if extra and extra not in missing:
+                missing.append(extra)
 
         summary = f"Data Extracted:\n- Type: {p_type or 'Unknown'}\n- Size: {size if size else 'None'} {unit}\n"
         summary += f"- Current Status: {current_status}\n- Target Status: {target_status}\n"
@@ -291,16 +324,27 @@ async def calculate_costs(quotation_id: str) -> str:
         if not q_data or q_data.extracted_data is None:
             return "Error: No extracted data found. Please run 'collect_project_data' first to extract project details."
 
-        # Validate required fields before calculating
+        # Validate required fields before calculating. A truthy 'unknown'-style
+        # sentinel does NOT count as present — otherwise we quote on garbage
+        # (see workflow_node._is_present, kept in sync here).
+        _null_like = ("", "unknown", "null", "none", "not specified", "n/a")
+
+        def _present(v) -> bool:
+            if not v:
+                return False
+            if isinstance(v, str) and v.strip().lower() in _null_like:
+                return False
+            return True
+
         extracted = q_data.extracted_data
         missing_fields = []
-        if not extracted.get("size_sqm"):
+        if not _present(extracted.get("size_sqm")):
             missing_fields.append("size (sqm)")
-        if not extracted.get("project_type") or extracted.get("project_type") == "Unknown":
+        if not _present(extracted.get("project_type")):
             missing_fields.append("project type")
-        if not extracted.get("current_finish_level"):
+        if not _present(extracted.get("current_finish_level")):
             missing_fields.append("current finish level")
-        if not extracted.get("target_finish_level"):
+        if not _present(extracted.get("target_finish_level")):
             missing_fields.append("target finish level")
         if missing_fields:
             return f"Error: Cannot calculate costs yet. Missing required data: {', '.join(missing_fields)}. Please call collect_project_data to gather this information first."
@@ -325,30 +369,22 @@ async def calculate_costs(quotation_id: str) -> str:
         
         await db.commit()
         
-        # Format Output
+        # Format Output — machine marker only. The user-facing BOQ table is
+        # rendered deterministically in Python by graph.builder.response_node
+        # (via utils.cost_formatter) from the persisted cost_breakdown. The LLM
+        # must NEVER re-type these figures, so we deliberately do NOT inline the
+        # line items here. Keep the "Cost Calculation Complete" trigger phrase so
+        # response_node detects a cost-presentation turn.
         total = result.get("total_cost", 0)
         currency = result.get("currency", "EGP")
-        breakdown = result.get("cost_breakdown", {})
-        
-        summary = f"### 🏗️ Cost Calculation Complete\n**Total Estimated Cost: {total:,.2f} {currency}**\n\n"
-        
-        summary += "#### 📦 Material & BOQ Breakdown:\n"
-        if "materials" in breakdown:
-            for item in breakdown["materials"].get("items", []):
-                name = item.get("name")
-                cost = item.get("total", 0)
-                summary += f"- **{name}**: {cost:,.2f} {currency}\n"
-        
-        if "labor" in breakdown:
-             summary += "\n#### 👷 Labor & Trades:\n"
-             for trade in breakdown["labor"].get("trades", []):
-                 name = trade.get("trade")
-                 cost = trade.get("total", 0)
-                 summary += f"- **{name}**: {cost:,.2f} {currency}\n"
-             
-        summary += "\n> [!TIP]\n"
-        summary += "> Full detailed professional breakdown (6-column BOQ with technical specs) has been saved. You can now export this as PDF or Excel."
-        return summary
+        materials_count = len(result.get("cost_breakdown", {}).get("materials", {}).get("items", []))
+        labor_count = len(result.get("cost_breakdown", {}).get("labor", {}).get("trades", []))
+        return (
+            "Cost Calculation Complete. "
+            f"total={total:,.2f} {currency}; "
+            f"materials={materials_count}; labor={labor_count}. "
+            "The detailed BOQ table is rendered by the system; do not restate any numbers."
+        )
 
     except Exception as e:
         logger.error(f"Error in calculate_costs: {e}", exc_info=True)

@@ -1,3 +1,4 @@
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from typing import List
 import os
@@ -31,6 +32,13 @@ class Settings(BaseSettings):
     # If set, final user-facing responses use this endpoint instead of RUNPOD_BASE_URL
     RESPONSE_LLM_BASE_URL: str = ""
     RESPONSE_LLM_MODEL: str = ""  # Falls back to MODEL_NAME if empty
+
+    # The self-hosted model (e.g. gemma-*-it) is a "thinking" model: left enabled it
+    # spends the whole token budget on a hidden reasoning trace and returns EMPTY
+    # content under our tight max_tokens caps. Sent as chat_template_kwargs to the
+    # vLLM/llama.cpp OpenAI server. Set False only when pointing LLM_PROVIDER=openai
+    # at a real OpenAI endpoint (which rejects this extra).
+    LLM_DISABLE_THINKING: bool = True
     
     # Anthropic Configuration (recommended alternative)
     ANTHROPIC_API_KEY: str = ""
@@ -106,10 +114,11 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
         return self.CORS_ORIGINS
     
-    class Config:
-        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
-        case_sensitive = True
-        extra = "ignore"
+    model_config = ConfigDict(
+        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+        case_sensitive=True,
+        extra="ignore",
+    )
 
 
 settings = Settings()

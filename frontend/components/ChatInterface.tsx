@@ -40,6 +40,7 @@ export default function ChatInterface() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [quotationId, setQuotationId] = useState<string | null>(null);
+  const [quotationCompleted, setQuotationCompleted] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +61,7 @@ export default function ChatInterface() {
     setSessionId(newSessionId);
     setMessages([WELCOME_MSG]);
     setQuotationId(null);
+    setQuotationCompleted(false);
     localStorage.setItem('chat_session_id', newSessionId);
     localStorage.removeItem('quotation_id');
     localStorage.removeItem('chat_messages');
@@ -183,6 +185,9 @@ export default function ChatInterface() {
                     if (data.quotation_id) {
                       setQuotationId(data.quotation_id);
                       localStorage.setItem('quotation_id', data.quotation_id);
+                      if (data.quotation_status === 'completed') {
+                        setQuotationCompleted(true);
+                      }
                     }
                   } else if (data.type === 'error') {
                     throw new Error(data.content);
@@ -231,8 +236,8 @@ export default function ChatInterface() {
         </Button>
       </div>
 
-      {/* Quotation ready banner */}
-      {quotationId && (
+      {/* Quotation ready banner — only shown once cost calculation is complete */}
+      {quotationCompleted && quotationId && (
         <>
           <div className="px-5 py-2.5 bg-primary/5 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center gap-2">
